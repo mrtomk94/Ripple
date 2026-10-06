@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ripple — world events and market pressure</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6ECEF; --surface:#F5F8F9; --ink:#14263A; --muted:#566879; --line:#C5D0D7; --land:#CFD9DF; --sea:#E6ECEF;
+  --war:#B4442E; --weather:#17808F; --energy:#B57A0A; --tech:#6A48C0; --markets:#3E5873;
+  --up:#24785A; --down:#B4442E; --mixed:#7A8794;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1B27; --surface:#162533; --ink:#E2E9EF; --muted:#93A4B4; --line:#283B4D; --land:#1F3142; --sea:#0F1B27;
+    --war:#E07A62; --weather:#4FC3D1; --energy:#E9B44C; --tech:#A58CF0; --markets:#8FA9C6;
+    --up:#5CC79A; --down:#E07A62; --mixed:#8C99A6;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1B27; --surface:#162533; --ink:#E2E9EF; --muted:#93A4B4; --line:#283B4D; --land:#1F3142; --sea:#0F1B27;
+  --war:#E07A62; --weather:#4FC3D1; --energy:#E9B44C; --tech:#A58CF0; --markets:#8FA9C6;
+  --up:#5CC79A; --down:#E07A62; --mixed:#8C99A6;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;font-variation-settings:"wdth" 100;line-height:1.5;font-size:16px}
+.wrap{max-width:1080px;margin:0 auto;padding:20px 16px 48px}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+header h1{margin:0;font-size:clamp(44px,12vw,88px);line-height:.9;font-weight:800;font-variation-settings:"wdth" 62;letter-spacing:-.01em}
+header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
+.snap{font-size:14px}
+
+.grid{display:grid;gap:20px;margin-top:20px}
+@media (min-width:900px){.grid{grid-template-columns:1.35fr 1fr;align-items:start}}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px}
+.panel h2{margin:0 0 4px;font-size:22px;font-weight:700;font-variation-settings:"wdth" 75}
+.panel .sub{margin:0 0 12px;color:var(--muted);font-size:14px}
+
+.map{width:100%;height:auto;display:block;background:var(--sea);border-radius:4px}
+.map .land{fill:var(--land)}
+.map .grat{stroke:var(--line);stroke-width:.3;fill:none}
+.map .dot{cursor:pointer}
+.map .ring{fill:none;stroke-width:.8;opacity:0}
+@media (prefers-reduced-motion:no-preference){
+  .map .ring{animation:ripple 1.6s ease-out forwards}
+  @keyframes ripple{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(3.2)}}
+}
+.map .sel{fill:none;stroke:var(--ink);stroke-width:.9}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:10px;font-size:13px;color:var(--muted)}
+.legend span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--c);margin-right:6px;vertical-align:0}
+
+.press{display:grid;gap:7px}
+.prow{display:grid;grid-template-columns:minmax(118px,1fr) 2fr 34px;gap:8px;align-items:center;font-size:14px}
+.ptrack{position:relative;height:12px;background:var(--bg);border-radius:2px}
+.ptrack::after{content:"";position:absolute;left:50%;top:-3px;bottom:-3px;width:1px;background:var(--muted)}
+.pbar{position:absolute;top:0;bottom:0;border-radius:2px}
+.pval{text-align:right;font-variant-numeric:tabular-nums;font-variation-settings:"wdth" 75;font-weight:600}
+.axis{display:grid;grid-template-columns:minmax(118px,1fr) 2fr 34px;gap:8px;font-size:12px;color:var(--muted);margin-top:4px}
+.axis div{display:flex;justify-content:space-between}
+
+.analyze textarea{width:100%;min-height:76px;resize:vertical;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:4px;padding:10px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+.btn{background:var(--ink);color:var(--surface);border:0;border-radius:4px;padding:10px 16px;font-weight:700;cursor:pointer}
+.btn[disabled]{opacity:.5;cursor:default}
+.ghost{background:none;border:1px solid var(--line);border-radius:4px;padding:6px 10px;cursor:pointer;font-size:13px}
+.status{font-size:14px;color:var(--muted)}
+
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:10px}
+.chip{flex:none;border:1px solid var(--line);background:none;border-radius:999px;padding:6px 12px;font-size:14px;cursor:pointer}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+.feed{display:grid;gap:8px}
+.ev{border:1px solid var(--line);border-left:4px solid var(--c);border-radius:4px;background:var(--surface)}
+.ev.on{border-color:var(--ink);border-left-color:var(--c)}
+.evh{display:grid;grid-template-columns:1fr auto;gap:4px 10px;width:100%;text-align:left;background:none;border:0;padding:12px;cursor:pointer}
+.evh strong{font-size:16px;line-height:1.3}
+.meta{font-size:13px;color:var(--muted);grid-column:1/-1}
+.sev{display:flex;gap:2px;align-items:center}
+.sev i{display:block;width:5px;height:14px;background:var(--line);border-radius:1px}
+.sev i.f{background:var(--c)}
+.evb{padding:0 12px 14px;font-size:15px}
+.evb h3{margin:14px 0 6px;font-size:13px;font-weight:700;color:var(--muted)}
+.evb p{margin:0;max-width:64ch}
+.evb ol{margin:0;padding-left:20px}
+.evb ol li{margin:3px 0}
+.sects{display:grid;gap:5px}
+.sect{display:grid;grid-template-columns:auto 1fr;gap:8px;align-items:baseline}
+.tag{font-size:12px;font-weight:700;padding:1px 7px;border-radius:3px;color:var(--surface);white-space:nowrap}
+.tag.u{background:var(--up)} .tag.d{background:var(--down)} .tag.m{background:var(--mixed)}
+.tick{display:inline-block;font-variation-settings:"wdth" 75;font-weight:700;border:1px solid var(--line);border-radius:3px;padding:0 6px;margin:0 4px 4px 0;font-size:13px}
+.src{font-size:13px;color:var(--muted);margin-top:12px}
+.mine{font-size:12px;font-weight:700;color:var(--c);margin-left:6px}
+.empty{color:var(--muted);font-size:15px;padding:12px}
+
+footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Ripple</h1>
+    <p>World events, and the parts of the market they push on. Wars, storms, heat, oil, new technology, and central banks, all on one board.</p>
+    <p class="snap">Built from news through Sept 30, 2026. Paste any new headline below and it joins the board.</p>
+  </header>
+
+  <div class="grid">
+    <div style="display:grid;gap:20px">
+      <section class="panel" aria-labelledby="maph">
+        <h2 id="maph">Where it's happening</h2>
+        <p class="sub">Bigger dots are bigger events. Tap one to open it.</p>
+        <svg class="map" id="map" viewBox="0 8 360 142" role="img" aria-label="World map of current events"></svg>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section class="panel analyze" aria-labelledby="anh">
+        <h2 id="anh">Add a headline</h2>
+        <p class="sub">Paste any news. Claude tags it, places it on the map, and traces which sectors it could push up or down, including the knock-on effects.</p>
+        <label class="sr" for="hl">Headline</label>
+        <textarea id="hl" placeholder="Example: Drought drops Rhine river levels, barges cut loads by half"></textarea>
+        <div class="row">
+          <button class="btn" id="go">Analyze headline</button>
+          <span class="status" id="st" role="status"></span>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" aria-labelledby="ph">
+      <h2 id="ph">Sector pressure</h2>
+      <p class="sub">How hard the events on the board lean on each sector, weighted by size. This is a reading of the news, not a forecast.</p>
+      <div class="press" id="press"></div>
+      <div class="axis"><span></span><div><span>Down pressure</span><span>Up pressure</span></div><span></span></div>
+    </section>
+  </div>
+
+  <section style="margin-top:24px" aria-labelledby="fh">
+    <h2 id="fh" style="font-size:28px;font-variation-settings:'wdth' 75;margin:0 0 10px">The board</h2>
+    <div class="chips" id="chips" role="group" aria-label="Filter events"></div>
+    <div class="feed" id="feed"></div>
+  </section>
+
+  <footer>
+    Ripple organizes public news into cause-and-effect chains so you can research faster. Markets often price news in within minutes, and the same kind of event can move stocks differently each time. It is not financial advice; check any idea against real price history before risking money.
+  </footer>
+</div>
+
+<script>
+const CATS={
+  war:{label:"War & geopolitics",v:"--war"},
+  weather:{label:"Weather & disasters",v:"--weather"},
+  energy:{label:"Energy & commodities",v:"--energy"},
+  tech:{label:"Technology",v:"--tech"},
+  markets:{label:"Markets & economy",v:"--markets"}
+};
+const SECTORS=["Energy","Defense","Shipping & freight","Insurance","Utilities & power","Consumer staples","Consumer discretionary","Semiconductors","Cloud & software","Travel & airlines","Agriculture","Banks & rate-sensitive"];
+
+const EVENTS=[
+ {id:"e1",cat:"energy",sev:5,date:"2026-09-11",region:"Global / US Gulf Coast",lat:29.7,lng:-95.3,
+  title:"Crude spikes toward $100, energy leads 2026",
+  what:"Oil jumped close to double digits in one week in early September, lifting Treasury yields too. Energy is the best-performing sector of 2026 so far, up more than 40% year to date, while consumer discretionary is down on the year.",
+  chain:["Higher crude raises fuel costs for airlines, truckers, and shippers","Pricier gasoline squeezes household spending on non-essentials","Inflation worries push bond yields up, hurting rate-sensitive stocks","A sustained break above $100 would add to that squeeze"],
+  sectors:[{s:"Energy",d:1,why:"Producers and refiners earn more per barrel"},{s:"Travel & airlines",d:-1,why:"Jet fuel is a top cost"},{s:"Consumer discretionary",d:-1,why:"Less spare cash after fuel"},{s:"Banks & rate-sensitive",d:-1,why:"Rising yields weigh on REITs and lenders"}],
+  watch:["XLE","JETS","XLY","TLT"],src:"Weekly market recap, Sept 7–11, 2026"},
+ {id:"e2",cat:"war",sev:5,date:"2026 ongoing",region:"Persian Gulf / Middle East",lat:27,lng:51,
+  title:"Middle East conflict keeps a war premium in oil",
+  what:"The US-Iran conflict that broke out early in 2026 pushed crude from the high $50s to around $90 by March. Damage to energy facilities and pipelines, with long repair times, has kept a risk premium in prices even though the market would otherwise be oversupplied.",
+  chain:["Attacks or threats near shipping routes raise tanker insurance and freight rates","Importing countries rebuild strategic reserves, adding demand","Any ceasefire news can knock the premium out quickly, so moves are sharp in both directions"],
+  sectors:[{s:"Energy",d:1,why:"Risk premium lifts prices"},{s:"Defense",d:1,why:"Higher military spending and resupply"},{s:"Shipping & freight",d:0,why:"Higher rates but riskier routes"},{s:"Insurance",d:-1,why:"War-risk claims and repricing"}],
+  watch:["XLE","ITA","BZ=F"],src:"Commodity exchange and ratings agency commentary, Mar–May 2026"},
+ {id:"e3",cat:"energy",sev:3,date:"2026-09-30",region:"Iraq",lat:30.5,lng:47.8,
+  title:"Iraq offers October crude at deep discounts",
+  what:"Iraq's state oil marketer reportedly offered October cargoes at steep discounts to regional benchmarks. A seller cutting price that hard hints at buyers being scarce for that oil.",
+  chain:["Discounted barrels compete with other Gulf grades for Asian buyers","Refiners that can take the oil get cheaper input and fatter margins","It quietly undercuts the war-premium story if supply is actually plentiful"],
+  sectors:[{s:"Energy",d:0,why:"Good for refiners, a soft signal for crude prices"}],
+  watch:["CRAK","XLE"],src:"Market headlines, Sept 30, 2026"},
+ {id:"e4",cat:"energy",sev:3,date:"Early Oct 2026",region:"Vienna",lat:48.2,lng:16.4,
+  title:"OPEC+ monitoring committee meets this week",
+  what:"OPEC+'s ministerial monitoring committee is on the calendar for the first week of October. Its tone on output decides whether the oversupply worry or the war premium wins the next leg.",
+  chain:["Signal of more supply tends to pull crude down","Signal of restraint supports prices","Either way, airline and trucking stocks move opposite to oil"],
+  sectors:[{s:"Energy",d:0,why:"Direction depends on the decision"},{s:"Travel & airlines",d:0,why:"Moves opposite to crude"}],
+  watch:["XLE","USO"],src:"Economic calendar, October 2026"},
+ {id:"e5",cat:"weather",sev:4,date:"2026-09-29",region:"Pacific coast of Mexico",lat:19.1,lng:-104.3,
+  title:"Hurricane Polo makes landfall in Mexico as a major storm",
+  what:"Category 3 Hurricane Polo came ashore in Mexico with life-threatening conditions. Mexico's Pacific coast hosts major container ports and resort towns.",
+  chain:["Port closures can delay Asia-to-Mexico cargo for days","Resort damage hits tourism bookings","Crop losses in coastal farm states can lift local food prices","Reinsurers absorb part of the bill"],
+  sectors:[{s:"Insurance",d:-1,why:"Property claims"},{s:"Shipping & freight",d:-1,why:"Port disruption"},{s:"Travel & airlines",d:-1,why:"Resort and flight cancellations"},{s:"Agriculture",d:0,why:"Local crop damage"}],
+  watch:["KIE","EWW","IYT"],src:"Hurricane coverage, Sept 29, 2026"},
+ {id:"e6",cat:"weather",sev:3,date:"2026-09-28",region:"South of Japan",lat:28.5,lng:136,
+  title:"Typhoon Surigae crosses key Pacific shipping lanes",
+  what:"A very strong typhoon tracked past Japan's southern islands and through busy shipping lanes south of Honshu before weakening around Oct 1–3.",
+  chain:["Ships reroute or wait, adding days to trans-Pacific voyages","Short delays tighten container capacity and nudge spot rates","Little lasting impact if it stays offshore, as forecast"],
+  sectors:[{s:"Shipping & freight",d:0,why:"Delays raise rates but cut volume"},{s:"Insurance",d:-1,why:"Marine and coastal claims"}],
+  watch:["EWJ","BOAT"],src:"Typhoon advisory, Sept 28, 2026"},
+ {id:"e7",cat:"weather",sev:3,date:"2026-09-29",region:"Europe",lat:48,lng:9,
+  title:"Record European heat cuts chocolate demand",
+  what:"Lindt cut its 2026 sales forecast for the second time this year, saying Europeans bought less chocolate as temperatures broke records. Heat changes what people buy, not just how they feel.",
+  chain:["Hot summers shift spending from chocolate and heavy food to drinks and cooling","Air-conditioning demand strains power grids and lifts electricity prices","Low rivers in heat waves can slow barge shipping in central Europe"],
+  sectors:[{s:"Consumer staples",d:-1,why:"Weaker sales for some food makers"},{s:"Utilities & power",d:1,why:"Peak power demand"},{s:"Agriculture",d:0,why:"Heat stress on crops"}],
+  watch:["XLP","VGK"],src:"Daily market report, Sept 29, 2026"},
+ {id:"e8",cat:"tech",sev:4,date:"2026-09-29",region:"San Francisco",lat:37.8,lng:-122.4,
+  title:"Anthropic's IPO filing shows huge compute commitments",
+  what:"Anthropic's IPO prospectus reported a large 2025 net loss and roughly $518 billion in planned spending obligations on cloud, computing, and infrastructure in coming years. Filings like this show how much AI money is still flowing to hardware and data centers.",
+  chain:["Big multi-year compute contracts support cloud and chip revenue","Data centers need power, which supports grid equipment and utilities","Large losses keep the question open on whether AI spending pays off, which drives valuation swings"],
+  sectors:[{s:"Cloud & software",d:1,why:"Committed cloud demand"},{s:"Semiconductors",d:1,why:"Chip and memory orders"},{s:"Utilities & power",d:1,why:"Data center electricity"}],
+  watch:["SMH","IGV","XLU"],src:"Daily market report, Sept 29, 2026"},
+ {id:"e9",cat:"markets",sev:2,date:"2026-09-29",region:"Finland / Nasdaq",lat:60.2,lng:24.9,
+  title:"Oura postpones its IPO over market uncertainty",
+  what:"The smart-ring maker delayed its Nasdaq listing despite strong demand, citing uncertainty in the IPO market. When companies pull deals, it usually means bankers sense nervous buyers.",
+  chain:["Delayed IPOs reduce fees for investment banks","A cold IPO window can make investors more cautious about richly valued tech"],
+  sectors:[{s:"Banks & rate-sensitive",d:-1,why:"Fewer underwriting fees"},{s:"Cloud & software",d:-1,why:"Risk appetite for growth names cools"}],
+  watch:["IPO","XLF"],src:"Daily market report, Sept 29, 2026"},
+ {id:"e10",cat:"tech",sev:3,date:"2026-09-11",region:"United States",lat:39,lng:-77,
+  title:"Advanced nuclear stocks unwind sharply",
+  what:"Small-modular-reactor and nuclear fuel names fell 8–16% in one week, one of the year's most crowded momentum trades reversing. Hype-driven themes can drop fast even when the long-term story is unchanged.",
+  chain:["Crowded trades fall hardest when sentiment turns","Watch whether data-center power deals keep flowing; that's what the theme rests on"],
+  sectors:[{s:"Utilities & power",d:-1,why:"Nuclear theme sold off"},{s:"Energy",d:0,why:"Uranium sentiment wobbled"}],
+  watch:["SMR","OKLO","LEU","URA"],src:"Weekly market recap, Sept 7–11, 2026"},
+ {id:"e11",cat:"tech",sev:3,date:"Sept 2026",region:"Taiwan / global supply chain",lat:24.8,lng:121,
+  title:"AI shifts from training to inference, model prices keep falling",
+  what:"The AI chip market is splitting between chips for training models and chips for running them. Cheaper inference makes more AI products affordable to build, while raising the bar for chip makers' pricing.",
+  chain:["Falling AI prices spread AI into more apps and devices","Demand grows for inference chips and memory","Pricing pressure can squeeze margins at some chip makers"],
+  sectors:[{s:"Semiconductors",d:0,why:"More volume, more price competition"},{s:"Cloud & software",d:1,why:"Cheaper to build AI features"}],
+  watch:["SMH","SOXX"],src:"AI hardware roundup, Sept 2026"},
+ {id:"e12",cat:"markets",sev:4,date:"Late Oct 2026",region:"US, Europe, Japan, Canada, NZ",lat:40.7,lng:-74,
+  title:"Five central banks and US GDP land in one late-October week",
+  what:"The Fed, ECB, Bank of Japan, Bank of Canada, and RBNZ all decide in the final week of October, alongside first Q3 US GDP, September PCE inflation, and the UK budget. Traders often hold back before a pile-up like this, then move all at once.",
+  chain:["Quiet trading into the week, then sharp moves","Rate decisions move bank stocks, REITs, and the dollar","A strong dollar weighs on US companies that sell abroad"],
+  sectors:[{s:"Banks & rate-sensitive",d:0,why:"Direction depends on decisions"}],
+  watch:["TLT","KRE","VNQ","DXY"],src:"Economic calendar, October 2026"},
+ {id:"e13",cat:"markets",sev:2,date:"2026-09-28",region:"New York",lat:42,lng:-71,
+  title:"Nasdaq leads a slide on valuation worries",
+  what:"US stocks closed lower on Sept 28, with the tech-heavy Nasdaq falling most as investors questioned high valuations and waited on economic data.",
+  chain:["Valuation jitters hit the most expensive stocks first","Money rotates toward cheaper, steadier sectors"],
+  sectors:[{s:"Semiconductors",d:-1,why:"Richly valued"},{s:"Cloud & software",d:-1,why:"Richly valued"},{s:"Consumer staples",d:1,why:"Defensive rotation"}],
+  watch:["QQQ","XLP"],src:"Daily market report, Sept 29, 2026"},
+ {id:"e14",cat:"weather",sev:1,date:"2026-09-28",region:"North Atlantic",lat:39,lng:-52,
+  title:"Tropical Storm Hanna wanders the open Atlantic",
+  what:"The eighth named storm of the Atlantic season formed far northeast of Bermuda. It is a low land threat, but an El Niño year still has October storms to watch.",
+  chain:["Open-ocean storms mostly affect shipping routes","A late-season Gulf of Mexico storm would matter more for oil and insurers"],
+  sectors:[{s:"Insurance",d:0,why:"Low threat for now"}],
+  watch:["KIE"],src:"Hurricane coverage, Sept 28–30, 2026"}
+];
+
+const LAND=[
+ [[-168,66],[-140,70],[-100,72],[-80,72],[-62,60],[-55,50],[-66,44],[-75,35],[-81,25],[-90,29],[-97,26],[-97,18],[-88,15],[-80,8],[-84,10],[-92,15],[-105,20],[-112,30],[-118,34],[-124,40],[-124,48],[-135,58],[-150,60],[-165,60]],
+ [[-50,82],[-25,82],[-20,70],[-45,60],[-55,68]],
+ [[-80,8],[-60,10],[-50,0],[-35,-6],[-40,-22],[-55,-35],[-68,-55],[-75,-45],[-72,-20],[-81,-5]],
+ [[-10,36],[-9,43],[-2,48],[-5,58],[5,62],[15,70],[30,71],[40,66],[45,55],[40,45],[28,41],[20,40],[12,44],[3,42]],
+ [[-5,50],[1,51],[-2,56],[-5,58],[-6,54]],
+ [[-17,15],[-10,30],[-5,36],[10,37],[32,31],[35,28],[43,12],[51,12],[40,-15],[35,-25],[20,-35],[12,-17],[9,4],[-8,5]],
+ [[28,41],[40,45],[45,55],[40,66],[60,70],[80,73],[110,76],[140,72],[170,68],[180,65],[160,58],[142,48],[132,42],[122,40],[121,30],[110,20],[106,10],[100,13],[98,8],[93,20],[80,15],[77,8],[72,20],[66,25],[57,25],[59,22],[52,16],[43,13],[35,28],[35,36]],
+ [[130,31],[136,34],[141,38],[142,44],[140,41],[135,35]],
+ [[95,5],[105,-6],[115,-8],[125,-9],[120,0],[110,2]],
+ [[114,-22],[122,-18],[130,-12],[137,-12],[142,-11],[146,-19],[153,-28],[150,-37],[140,-38],[130,-32],[115,-34]]
+];
+
+const $=s=>document.querySelector(s);
+const css=v=>getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const px=(lng,lat)=>[lng+180,90-lat];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let added=[];
+try{added=JSON.parse(localStorage.getItem("ripple-added")||"[]")||[]}catch(e){added=[]}
+function save(){try{localStorage.setItem("ripple-added",JSON.stringify(added))}catch(e){}}
+
+let filter="all", selected=null, firstDraw=true;
+const all=()=>[...added,...EVENTS];
+const visible=()=>all().filter(e=>filter==="all"||e.cat===filter);
+
+function drawMap(){
+  const svg=$("#map"); let h="";
+  for(let x=0;x<=360;x+=30) h+=`<line class="grat" x1="${x}" y1="0" x2="${x}" y2="180"/>`;
+  for(let y=0;y<=180;y+=30) h+=`<line class="grat" x1="0" y1="${y}" x2="360" y2="${y}"/>`;
+  LAND.forEach(p=>{h+=`<polygon class="land" points="${p.map(([a,b])=>px(a,b).join(",")).join(" ")}"/>`});
+  visible().slice().sort((a,b)=>a.sev-b.sev).forEach((e,i)=>{
+    const [x,y]=px(e.lng,e.lat), r=1.6+e.sev*.75, c=`var(${CATS[e.cat].v})`;
+    const delay=firstDraw?(i*0.09).toFixed(2):"0";
+    if(firstDraw) h+=`<circle class="ring" cx="${x}" cy="${y}" r="${r}" stroke="${c}" style="transform-origin:${x}px ${y}px;animation-delay:${delay}s"/>`;
+    if(selected===e.id) h+=`<circle class="sel" cx="${x}" cy="${y}" r="${r+2.2}"/>`;
+    h+=`<circle class="dot" data-id="${e.id}" cx="${x}" cy="${y}" r="${r}" fill="${c}" fill-opacity=".85" stroke="var(--surface)" stroke-width=".5" tabindex="0" role="button" aria-label="${esc(e.title)}"><title>${esc(e.title)}</title></circle>`;
+  });
+  svg.innerHTML=h; firstDraw=false;
+  svg.querySelectorAll(".dot").forEach(d=>{
+    const go=()=>select(d.dataset.id,true);
+    d.addEventListener("click",go);
+    d.addEventListener("keydown",ev=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();go()}});
+  });
+}
+
+function drawLegend(){
+  $("#legend").innerHTML=Object.values(CATS).map(c=>`<span style="--c:var(${c.v})">${c.label}</span>`).join("");
+}
+
+function drawPressure(){
+  const score={}; SECTORS.forEach(s=>score[s]=0);
+  visible().forEach(e=>(e.sectors||[]).forEach(x=>{if(x.s in score) score[x.s]+=e.sev*x.d}));
+  const max=Math.max(5,...Object.values(score).map(Math.abs));
+  const rows=SECTORS.map(s=>[s,score[s]]).sort((a,b)=>b[1]-a[1]);
+  $("#press").innerHTML=rows.map(([s,v])=>{
+    const w=Math.abs(v)/max*50, left=v>=0?50:50-w, col=v>0?"var(--up)":v<0?"var(--down)":"var(--mixed)";
+    return `<div class="prow"><span>${s}</span><div class="ptrack" aria-hidden="true"><div class="pbar" style="left:${left}%;width:${w}%;background:${col}"></div></div><span class="pval">${v>0?"+":""}${v}</span></div>`;
+  }).join("");
+}
+
+function drawChips(){
+  const opts=[["all","Everything"],...Object.entries(CATS).map(([k,c])=>[k,c.label])];
+  $("#chips").innerHTML=opts.map(([k,l])=>`<button class="chip" data-f="${k}" aria-pressed="${filter===k}">${l}</button>`).join("");
+  $("#chips").querySelectorAll(".chip").forEach(b=>b.onclick=()=>{filter=b.dataset.f;selected=null;render()});
+}
+
+function dirTag(d){return d>0?'<span class="tag u">Up pressure</span>':d<0?'<span class="tag d">Down pressure</span>':'<span class="tag m">Mixed</span>'}
+
+function drawFeed(){
+  const list=visible().slice().sort((a,b)=>(b.mine?1:0)-(a.mine?1:0)||b.sev-a.sev);
+  if(!list.length){$("#feed").innerHTML='<div class="empty">Nothing in this category yet. Paste a headline above to add one.</div>';return}
+  $("#feed").innerHTML=list.map(e=>{
+    const on=selected===e.id, c=`var(${CATS[e.cat].v})`;
+    const bars=[1,2,3,4,5].map(n=>`<i class="${n<=e.sev?"f":""}"></i>`).join("");
+    let body="";
+    if(on){
+      body=`<div class="evb">
+        <p>${esc(e.what)}</p>
+        <h3>Chain reaction</h3><ol>${(e.chain||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
+        <h3>Sectors touched</h3><div class="sects">${(e.sectors||[]).map(x=>`<div class="sect">${dirTag(x.d)}<span><b>${esc(x.s)}</b>: ${esc(x.why)}</span></div>`).join("")}</div>
+        <h3>Tickers to watch</h3><div>${(e.watch||[]).map(t=>`<span class="tick">${esc(t)}</span>`).join("")}</div>
+        <div class="src">${esc(e.src)}</div>
+        ${e.mine?`<div class="row"><button class="ghost" data-del="${e.id}">Remove from board</button></div>`:""}
+      </div>`;
+    }
+    return `<article class="ev ${on?"on":""}" id="ev-${e.id}" style="--c:${c}">
+      <button class="evh" data-id="${e.id}" aria-expanded="${on}">
+        <strong>${esc(e.title)}${e.mine?'<span class="mine">Yours</span>':""}</strong>
+        <span class="sev" aria-label="Size ${e.sev} of 5">${bars}</span>
+        <span class="meta">${esc(CATS[e.cat].label)}, ${esc(e.region)}, ${esc(e.date)}</span>
+      </button>${body}</article>`;
+  }).join("");
+  $("#feed").querySelectorAll(".evh").forEach(b=>b.onclick=()=>select(b.dataset.id,false));
+  $("#feed").querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{added=added.filter(x=>x.id!==b.dataset.del);save();selected=null;render()});
+}
+
+function select(id,scroll){
+  selected=selected===id&&!scroll?null:id; render();
+  if(scroll){const el=document.getElementById("ev-"+id); if(el) el.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"})}
+}
+
+function render(){drawChips();drawMap();drawPressure();drawFeed()}
+drawLegend(); render();
+
+/* ---------- Analyzer ---------- */
+let sample=null;
+const go=$("#go"), st=$("#st");
+go.disabled=true; st.textContent="Connecting to Claude…";
+(async()=>{
+  try{ sample = window.claude && window.claude.use ? await window.claude.use("sample") : null }catch(e){ sample=null }
+  if(sample){go.disabled=false; st.textContent=""}
+  else{st.textContent="Headline analysis isn't available in this view. Open the page on claude.ai to use it."}
+})();
+
+function clean(r,headline){
+  const cat=CATS[r.cat]?r.cat:"markets";
+  const sev=Math.min(5,Math.max(1,Math.round(+r.sev||2)));
+  let lat=+r.lat, lng=+r.lng; if(!isFinite(lat)||!isFinite(lng)){lat=0;lng=0}
+  lat=Math.max(-58,Math.min(80,lat)); lng=Math.max(-179,Math.min(179,lng));
+  const sectors=(Array.isArray(r.sectors)?r.sectors:[]).filter(x=>SECTORS.includes(x.s)).slice(0,5).map(x=>({s:x.s,d:x.d>0?1:x.d<0?-1:0,why:String(x.why||"").slice(0,140)}));
+  return {id:"u"+Date.now(),mine:true,cat,sev,lat,lng,
+    date:new Date().toISOString().slice(0,10),
+    region:String(r.region||"Unknown").slice(0,60),
+    title:String(r.title||headline).slice(0,100),
+    what:String(r.what||"").slice(0,500),
+    chain:(Array.isArray(r.chain)?r.chain:[]).slice(0,5).map(x=>String(x).slice(0,160)),
+    sectors, watch:(Array.isArray(r.watch)?r.watch:[]).slice(0,6).map(x=>String(x).slice(0,10)),
+    src:"Your headline: "+headline.slice(0,140)};
+}
+
+go.onclick=async()=>{
+  const headline=$("#hl").value.trim();
+  if(!headline){st.textContent="Paste a headline first.";return}
+  go.disabled=true; st.textContent="Reading the headline…";
+  const prompt=`You are a careful markets analyst. Analyze this news headline and return ONLY a JSON object, no other text.
+Keys:
+- title: short plain-English title, max 80 characters
+- cat: one of "war","weather","energy","tech","markets"
+- sev: integer 1-5, how big the event is for global markets
+- region: short place name
+- lat, lng: approximate coordinates of where the event happens (numbers)
+- what: 2 plain sentences explaining what happened and why it matters
+- chain: 3-4 short cause-and-effect steps, including at least one second-order effect most people would miss
+- sectors: up to 5 objects {"s": sector, "d": 1 for up pressure, -1 for down pressure, 0 for mixed, "why": short reason}. "s" must be exactly one of: ${SECTORS.join(", ")}
+- watch: up to 5 ETF or stock tickers worth watching
+Be balanced. Pressure is a direction to research, not a certainty, and markets may already have priced the news in.
+Headline: ${headline}`;
+  try{
+    const r=await sample.json(prompt,{modelTier:"default"});
+    const ev=clean(r||{},headline);
+    added.unshift(ev); save(); filter="all"; selected=ev.id; render();
+    $("#hl").value=""; st.textContent="Added to the board.";
+    const el=document.getElementById("ev-"+ev.id); if(el) el.scrollIntoView({block:"center"});
+  }catch(err){
+    const code=err&&err.code;
+    st.textContent = code==="rate_limited" ? "Too many requests right now. Try again in a minute."
+      : code==="not_granted" ? "Analysis needs permission to ask Claude. Allow it in the artifact's permissions to use this."
+      : code==="cancelled" ? "Analysis stopped."
+      : "Couldn't analyze that headline. Try rewording it.";
+    if(code==="not_granted") go.style.display="none";
+  }finally{ if(go.style.display!=="none") go.disabled=false }
+};
+</script>
+</body>
+</html>
