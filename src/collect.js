@@ -6,6 +6,8 @@ import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { createStore } from './store.js';
 import { createScheduler, publicHealth } from './scheduler.js';
+import { addPredictions, updatePredictions, neededTickers, scorecard } from './predictions.js';
+import { getQuotes } from './prices.js';
 
 export async function collect({ sources, fetchText, previous = {}, log = console, now = Date.now }) {
   const store = createStore({ file: join(tmpdir(), `ripple-${process.pid}.json`), now });
@@ -13,7 +15,16 @@ export async function collect({ sources, fetchText, previous = {}, log = console
   const noSave = { upsert: (e) => store.upsert(e), prune: () => store.prune(), save: async () => {} };
   const scheduler = createScheduler({ sources, store: noSave, fetchText, log, now });
   for (const s of sources) await scheduler.runSource(s);
-  return { generatedAt: now(), sources: publicHealth(scheduler.status()), events: store.list({ limit: 500 }) };
+  const events = store.list({ limit: 500 });
+  let predictions = addPredictions(Array.isArray(previous.predictions) ? previous.predictions : [], events, now);
+  const tickers = neededTickers(predictions);
+  const quotes = tickers.length ? await getQuotes(tickers, fetchText) : {};
+  predictions = updatePredictions(predictions, quotes, now);
+  return {
+    generatedAt: now(), sources: publicHealth(scheduler.status()), events,
+    prices: { asked: tickers.length, got: Object.keys(quotes).length },
+    predictions, scorecard: scorecard(predictions),
+  };
 }
 
 export async function collectToFile(file, opts) {
@@ -31,4 +42,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const out = await collectToFile(process.argv[2] || 'public/events.json', { sources, fetchText });
   const failing = Object.entries(out.sources).filter(([, s]) => s.failing).map(([n]) => n);
   console.info(`Collected ${out.events.length} events.${failing.length ? ` Failing: ${failing.join(', ')}` : ' All sources OK.'}`);
+  console.info(`Prices: ${out.prices.got}/${out.prices.asked} quotes. Predictions: ${out.scorecard.pending} pending, ${out.scorecard.scored} scored${out.scorecard.hitRate === null ? '' : `, ${Math.round(out.scorecard.hitRate * 100)}% hit rate`}.`);
 }

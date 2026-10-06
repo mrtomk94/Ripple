@@ -116,7 +116,7 @@ let added=[];
 try{added=JSON.parse(localStorage.getItem("ripple-added")||"[]")||[]}catch(e){added=[]}
 function save(){try{localStorage.setItem("ripple-added",JSON.stringify(added))}catch(e){}}
 
-let filter="all", selected=null, firstDraw=true, live=null;
+let filter="all", selected=null, firstDraw=true, live=null, card=null, preds=[];
 const all=()=>[...added,...(live||SNAPSHOT)];
 const when=d=>{const t=Date.parse(d);return Number.isNaN(t)?String(d):new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})};
 const safeUrl=u=>/^https?:\/\//.test(u||"")?u:"";
@@ -138,13 +138,15 @@ async function loadLive(){
   try{
     const data=await fetchEvents();
     live=data.events;
+    card=data.scorecard||null;
+    preds=Array.isArray(data.predictions)?data.predictions:[];
     const age=Date.now()-Number(data.generatedAt);
     const stale=age>2*3600e3?" That's over 2 hours ago, so collection may be paused.":"";
     $("#snap").textContent=live.length
       ? `Live: ${live.length} events from trusted sources, collected ${when(new Date(Number(data.generatedAt)).toISOString())}.${stale}`
       : "Live, but no events collected yet. The first collection runs within 15 minutes.";
   }catch(e){
-    live=null;
+    live=null; card=null; preds=[];
     $("#snap").textContent="Live feed unreachable, showing the Sept 30, 2026 snapshot. Retrying every 5 minutes.";
   }
   render();
@@ -206,7 +208,8 @@ function drawFeed(){
         <p>${esc(e.what)}</p>
         <h3>Chain reaction</h3><ol>${(e.chain||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
         <h3>Sectors touched</h3><div class="sects">${(e.sectors||[]).map(x=>`<div class="sect">${dirTag(x.d)}<span><b>${esc(x.s)}</b>: ${esc(x.why)}</span></div>`).join("")}</div>
-        <h3>Tickers to watch</h3><div>${(e.watch||[]).map(t=>`<span class="tick">${esc(t)}</span>`).join("")}</div>
+        <h3>Tickers to watch</h3><div>${(e.watch||[]).map(t=>tickChip(t,tickerDir(e,t))).join("")}</div>
+        ${(()=>{const mine=preds.filter(p=>p.eventId===e.id);return mine.length?`<h3>How the calls did</h3><div class="sects">${mine.map(p=>`<div class="sect">${resultTag(p.status)}<span>${tickChip(p.ticker,p.d)}${typeof p.excess==="number"?`${signed(p.excess)} vs the market`:p.status==="pending"?"checked after the next trading day":""}</span></div>`).join("")}</div>`:""})()}
         <div class="src">${esc(e.src)}${safeUrl(e.link)?` · <a href="${esc(e.link)}" target="_blank" rel="noopener noreferrer">Read the source</a>`:""}</div>
         ${e.mine?`<div class="row"><button class="ghost" data-del="${e.id}">Remove from board</button></div>`:""}
       </div>`;
@@ -227,7 +230,41 @@ function select(id,scroll){
   if(scroll){const el=document.getElementById("ev-"+id); if(el) el.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"center"})}
 }
 
-function render(){drawChips();drawMap();drawPressure();drawFeed()}
+// Sector fund for each sector, matching the server's list.
+const SECTOR_ETF={"Energy":"XLE","Defense":"ITA","Shipping & freight":"IYT","Insurance":"KIE","Utilities & power":"XLU","Consumer staples":"XLP","Consumer discretionary":"XLY","Semiconductors":"SMH","Cloud & software":"IGV","Travel & airlines":"JETS","Agriculture":"DBA","Banks & rate-sensitive":"KRE"};
+function tickerDir(e,t){const s=(e.sectors||[]).find(x=>SECTOR_ETF[x.s]===t);return s?s.d:0}
+function tickChip(t,d){
+  const cls=d>0?" up":d<0?" down":"", arrow=d>0?"▲ ":d<0?"▼ ":"";
+  const label=d>0?"predicted up":d<0?"predicted down":"no direction";
+  return `<span class="tick${cls}" title="${esc(t)}: ${label}" aria-label="${esc(t)}, ${label}">${arrow}${esc(t)}</span>`;
+}
+const pct=x=>`${Math.round(x*100)}%`;
+const signed=x=>`${x>0?"+":""}${(x*100).toFixed(1)}%`;
+const resultTag=st=>st==="hit"?'<span class="res hit">✓ Hit</span>':st==="miss"?'<span class="res miss">✗ Miss</span>':st==="flat"?'<span class="res">Tie</span>':'<span class="res">Waiting</span>';
+
+function drawScore(){
+  const el=$("#score");
+  if(!card){el.innerHTML='<p class="note">The scorecard appears when live data loads.</p>';return}
+  if(!card.scored){
+    el.innerHTML=`<p class="note">${card.pending?`Tracking ${card.pending} call${card.pending===1?"":"s"}. First results arrive after the next trading day closes.`:"No calls yet. New events with an up or down sector start a call."}</p>`;
+    return;
+  }
+  const rate=card.hitRate, col=rate>=.5?"var(--up)":"var(--down)";
+  const sectors=Object.entries(card.bySector).sort((a,b)=>b[1].scored-a[1].scored);
+  el.innerHTML=`<div class="score">
+    <div class="bigrow"><span class="big">${pct(rate)}</span><span>${card.hits} of ${card.scored} calls right${card.pending?`, ${card.pending} waiting`:""}</span></div>
+    <div class="vs" aria-hidden="true"><div class="fill" style="width:${rate*100}%;background:${col}"></div><div class="coin"></div></div>
+    <div class="vslab"><span>0%</span><span>Coin flip 50%</span><span>100%</span></div>
+    ${card.scored<30?`<p class="note">Only ${card.scored} call${card.scored===1?"":"s"} scored so far. Treat this as rough until 30 or more.</p>`:""}
+    <h3>By sector</h3>
+    ${sectors.map(([s,b])=>`<div class="srow"><span>${esc(s)}</span><span class="num">${b.hits}/${b.scored}</span><span class="num">${pct(b.hits/b.scored)}</span></div>`).join("")}
+    <h3>Latest results</h3>
+    ${(card.recent||[]).map(r=>`<div class="rrow">${resultTag(r.status)}<span class="t" title="${esc(r.title)}">${tickChip(r.ticker,r.d)} ${esc(r.title)}</span><span class="num">${typeof r.excess==="number"?signed(r.excess):""}</span></div>`).join("")}
+    <p class="note">The number on the right is how the fund did compared with the market.</p>
+  </div>`;
+}
+
+function render(){drawChips();drawMap();drawPressure();drawFeed();drawScore()}
 drawLegend(); render(); loadLive();
 setInterval(loadLive,5*60e3);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden) loadLive()});

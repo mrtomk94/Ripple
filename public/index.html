@@ -97,10 +97,31 @@ header p{margin:8px 0 0;color:var(--muted);max-width:60ch}
 .tag{font-size:12px;font-weight:700;padding:1px 7px;border-radius:3px;color:var(--surface);white-space:nowrap}
 .tag.u{background:var(--up)} .tag.d{background:var(--down)} .tag.m{background:var(--mixed)}
 .tick{display:inline-block;font-variation-settings:"wdth" 75;font-weight:700;border:1px solid var(--line);border-radius:3px;padding:0 6px;margin:0 4px 4px 0;font-size:13px}
+.tick.up{background:var(--up);border-color:var(--up);color:var(--surface)}
+.tick.down{background:var(--down);border-color:var(--down);color:var(--surface)}
+.rrow .tick{margin:0 4px 0 0}
+.res{font-size:12px;font-weight:700;padding:0 6px;border-radius:3px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.res.hit{color:var(--up);border-color:var(--up)}
+.res.miss{color:var(--down);border-color:var(--down)}
 .src{font-size:13px;color:var(--muted);margin-top:12px}
 .mine{font-size:12px;font-weight:700;color:var(--c);margin-left:6px}
 .empty{color:var(--muted);font-size:15px;padding:12px}
 
+.big{font-size:56px;line-height:1;font-weight:800;font-variation-settings:"wdth" 62;font-variant-numeric:tabular-nums}
+.bigrow{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.vs{position:relative;height:10px;background:var(--bg);border-radius:2px;margin:12px 0 4px}
+.vs .fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px}
+.vs .coin{position:absolute;left:50%;top:-4px;bottom:-4px;width:2px;background:var(--ink)}
+.vslab{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}
+.note{font-size:13px;color:var(--muted);margin:10px 0 0}
+.score h3{margin:16px 0 6px;font-size:13px;font-weight:700;color:var(--muted)}
+.srow{display:grid;grid-template-columns:1fr auto auto;gap:10px;font-size:14px;padding:3px 0;border-bottom:1px solid var(--line)}
+.srow:last-child{border-bottom:0}
+.num{font-variant-numeric:tabular-nums;font-variation-settings:"wdth" 75;font-weight:600;text-align:right}
+.rrow{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:baseline;font-size:14px;padding:5px 0;border-bottom:1px solid var(--line)}
+.rrow:last-child{border-bottom:0}
+.rrow .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.tag.f{background:var(--mixed)} .tag.w{background:none;color:var(--muted);border:1px solid var(--line)}
 footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>
@@ -134,12 +155,19 @@ footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
       </section>
     </div>
 
+    <div style="display:grid;gap:20px">
     <section class="panel" aria-labelledby="ph">
-      <h2 id="ph">Sector pressure</h2>
-      <p class="sub">How hard the events on the board lean on each sector, weighted by size. This is a reading of the news, not a forecast.</p>
-      <div class="press" id="press"></div>
-      <div class="axis"><span></span><div><span>Down pressure</span><span>Up pressure</span></div><span></span></div>
-    </section>
+        <h2 id="ph">Sector pressure</h2>
+        <p class="sub">How hard the events on the board lean on each sector, weighted by size. This is a reading of the news, not a forecast.</p>
+        <div class="press" id="press"></div>
+        <div class="axis"><span></span><div><span>Down pressure</span><span>Up pressure</span></div><span></span></div>
+      </section>
+      <section class="panel" aria-labelledby="sch">
+        <h2 id="sch">Prediction scorecard</h2>
+        <p class="sub">Each up or down call is checked one trading day later on that sector's fund. A hit means the fund beat the overall market (SPY) in the direction Ripple said. A coin flip would score about 50%.</p>
+        <div id="score" role="status"></div>
+      </section>
+    </div>
   </div>
 
   <section style="margin-top:24px" aria-labelledby="fh">

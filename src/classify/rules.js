@@ -58,13 +58,13 @@ export const CHAINS = {
 const RULES = [
   { cat: 'energy', sev: 2, re: W('oil|crude|opec\\+?|brent|natural gas|lng|refiner(?:y|ies)|pipelines?|gasoline|petrol|fuel prices'),
     sectors: [{ s: 'Energy', d: '+', why: 'Producers earn more when prices rise' }, { s: 'Travel & airlines', d: '-', why: 'Fuel is a top cost' }] },
-  { cat: 'war', sev: 3, re: W('air ?strikes?|missiles?|invasion|invade[sd]?|troops|shelling|drone (?:attack|strike)s?|military|war|artillery|bombing|bombed|coup|insurgents?'),
+  { cat: 'war', sev: 3, strip: /\b(?:trade|price|bidding|talent|culture|turf|fare|tariff|chip|streaming|subsidy|currency)[- ]wars?\b/gi, re: W('air ?strikes?|missiles?|invasion|invade[sd]?|troops|shelling|drone (?:attack|strike)s?|military|war|artillery|bombing|bombed|coup|insurgents?'),
     sectors: [{ s: 'Defense', d: 1, why: 'Higher military spending' }, { s: 'Insurance', d: -1, why: 'War-risk claims and repricing' }] },
   { cat: 'weather', sev: 2, re: W('heat ?waves?|record heat'),
     sectors: [{ s: 'Utilities & power', d: 1, why: 'Air-conditioning demand' }, { s: 'Agriculture', d: 0, why: 'Heat stress on crops' }] },
-  { cat: 'weather', sev: 2, re: W('hurricanes?|typhoons?|cyclones?|floods?|flooding|droughts?|wildfires?|earthquakes?|tsunami|blizzards?|storms?|landslides?|volcano(?:es)?'),
+  { cat: 'weather', sev: 2, re: W('hurricanes?|typhoons?|cyclones?|floods?|flooding|droughts?|wildfires?|earthquakes?|tsunami|blizzards?|landslides?|volcano(?:es)?|(?:tropical|winter|severe|ice|dust|snow|thunder|hail) ?storms?|storm surge|storms? (?:hits?|batters?|lash(?:es)?|slams?|pound(?:s)?|sweeps?|makes landfall|warnings?)'), also: /\bStorm [A-Z][a-z]+\b(?! over)/,
     sectors: [{ s: 'Insurance', d: -1, why: 'Property and business claims' }, { s: 'Agriculture', d: 0, why: 'Crop and supply disruption' }] },
-  { cat: 'tech', sev: 2, re: W('ai|artificial intelligence|microchips?|chipmakers?|chip (?:makers?|industry|exports?|shortage|plants?|factor(?:y|ies)|stocks|giants?|ban)|semiconductors?|data cent(?:er|re)s?|quantum|robots?|robotics|nvidia|tsmc|openai|anthropic'),
+  { cat: 'tech', sev: 2, also: /\bAI\b/, re: W('artificial intelligence|microchips?|chipmakers?|chip (?:makers?|industry|exports?|shortage|plants?|factor(?:y|ies)|stocks|giants?|ban)|semiconductors?|data cent(?:er|re)s?|quantum|robots?|robotics|nvidia|tsmc|openai|anthropic'),
     sectors: [{ s: 'Semiconductors', d: '+', why: 'Chip demand' }, { s: 'Cloud & software', d: '+', why: 'AI and software spending' }] },
   { cat: 'tech', sev: 2, re: W('cyber ?attacks?|hack(?:ed|ers?)|ransomware|outages?'),
     sectors: [{ s: 'Cloud & software', d: 0, why: 'Security spending up, victims hurt' }] },
@@ -84,7 +84,10 @@ const STRONG = W('record|surges?|soars?|plunges?|crash(?:es)?|jumps?|invasion|wa
 
 export function classifyHeadline(text) {
   const t = String(text || '');
-  const hits = RULES.filter((r) => r.re.test(t));
+  const hits = RULES.filter((r) => {
+    const text = r.strip ? t.replace(r.strip, ' ') : t;
+    return r.re.test(text) || (r.also ? r.also.test(text) : false);
+  });
   if (!hits.length) return null;
   const mood = UP.test(t) ? 1 : DOWN.test(t) ? -1 : 0;
   const resolve = (d) => (d === '+' ? mood : d === '-' ? -mood : d);

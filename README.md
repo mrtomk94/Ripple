@@ -19,6 +19,17 @@ Only headlines, links, dates, and Ripple's own tags are stored. Article text is 
 
 Tagging is rule-based: keywords, a place lookup, and region boxes (for example, a quake near Taiwan flags semiconductors). No AI key is needed.
 
+## Prediction scorecard
+
+Every new event (under 24 hours old) that marks a sector up or down becomes a call on that sector's fund (for example Energy → XLE). Ripple records the fund and SPY prices on the next collection, then checks again after the next trading day closes (at least 20 hours later).
+
+- **Hit:** the fund beat SPY in the predicted direction ("up" = outperformed, "down" = underperformed).
+- **Miss:** it went the other way. **Tie:** within 0.1% of SPY, not counted.
+- Mixed sectors aren't scored. Calls with no starting price after 4 days expire. Results are kept 90 days.
+- A coin flip scores about 50%, so that is the bar to beat. Under 30 scored calls, the % is rough.
+
+Prices come from Stooq (free, no key), with Yahoo's chart API as a backup. The Actions log line `Prices: X/Y quotes` shows whether they are coming through.
+
 ## Run locally
 
 Requires Node 22+. There are no npm dependencies.

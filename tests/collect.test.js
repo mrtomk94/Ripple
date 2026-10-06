@@ -48,3 +48,22 @@ test('collectToFile starts fresh when the old file is missing or corrupt', async
   await collectToFile(missing, { sources: [], fetchText: async () => '', log: quiet, now: () => NOW });
   assert.deepEqual(JSON.parse(readFileSync(missing, 'utf8')).events, []);
 });
+
+test('tracks predictions across runs and scores them a trading day later', async () => {
+  const H = 3600e3;
+  const csv = (price, date) => `Symbol,Date,Time,Open,High,Low,Close,Volume\nX.US,${date},16:00:00,1,1,1,${price},1`;
+  const fresh = { ...ev('oil', 0), sectors: [{ s: 'Energy', d: 1 }] };
+  const prices = (xle, spy, date) => async (u) => (u.includes('xle') ? csv(xle, date) : u.includes('spy') ? csv(spy, date) : '');
+  const first = await collect({ sources: [src('a', [fresh])], fetchText: prices(100, 500, '2026-10-06'), log: quiet, now: () => NOW });
+  assert.equal(first.predictions.length, 1);
+  assert.equal(first.predictions[0].start.price, 100);
+  assert.equal(first.scorecard.pending, 1);
+  const second = await collect({ sources: [src('a', [])], fetchText: prices(103, 505, '2026-10-07'), log: quiet, now: () => NOW + 26 * H, previous: first });
+  assert.equal(second.predictions[0].status, 'hit');
+  assert.equal(second.scorecard.hitRate, 1);
+});
+test('no price lookups when nothing is pending', async () => {
+  const urls = [];
+  await collect({ sources: [], fetchText: async (u) => { urls.push(u); return ''; }, log: quiet, now: () => NOW });
+  assert.equal(urls.length, 0);
+});
