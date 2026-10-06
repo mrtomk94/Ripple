@@ -243,7 +243,7 @@ function tickerDir(e,t){const s=(e.sectors||[]).find(x=>SECTOR_ETF[x.s]===t);ret
 function tickChip(t,d){
   const cls=d>0?" up":d<0?" down":"", arrow=d>0?"▲ ":d<0?"▼ ":"";
   const label=d>0?"predicted up":d<0?"predicted down":"no direction";
-  return `<span class="tick${cls}" title="${esc(t)}: ${label}" aria-label="${esc(t)}, ${label}">${arrow}${esc(t)}</span>`;
+  return `<span class="tick${cls}" data-tk="${esc(t)}" role="button" tabindex="0" title="${esc(t)}: ${label}. Click for the 5-year chart" aria-label="${esc(t)}, ${label}. Show 5-year chart">${arrow}${esc(t)}</span>`;
 }
 const TIER_NAME={small:"Small",medium:"Medium",big:"Big"};
 const tierFor=sev=>sev>=4?"big":sev>=3?"medium":"small";
@@ -351,7 +351,7 @@ function drawVoices(){
   const evs=all().filter(e=>Array.isArray(e.people)&&e.people.length);
   el.innerHTML=VOICES.map(v=>{
     const mine=evs.filter(e=>e.people.includes(v.id)).sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0)).slice(0,4);
-    const tix=v.tickers.map(t=>quotes[t]?`<span><b>${esc(t)}</b> ${money(quotes[t].price)} ${chg(quotes[t].changePct)}</span>`:`<span><b>${esc(t)}</b></span>`).join("");
+    const tix=v.tickers.map(t=>quotes[t]?`<span>${tickChip(t,0)} ${money(quotes[t].price)} ${chg(quotes[t].changePct)}</span>`:`<span>${tickChip(t,0)}</span>`).join("");
     const items=mine.length?mine.map(e=>{
       const who=outlets(e).length?outlets(e).map(x=>x.outlet||x.src).join(" · "):(e.src||"");
       return `<button class="vitem" data-v="${esc(e.id)}"><div class="qt">${esc(e.title)}</div><div class="qm">${esc(ago(e.date))} · ${esc(who)}${sourceKind(e)}${confBadge(e)}</div></button>`;
@@ -376,6 +376,95 @@ function drawOptions(){
   }).join(""):'<p class="note">No trades met the rules in the last sweep.</p>';
   el.innerHTML=head+rows+'<p class="note">Calls lean up, puts lean down, but this shows a big trade happened, not who bought or sold it. Large puts are often hedges. These are not counted in the accuracy dashboard.</p>';
 }
+
+/* ---------- 5-year chart pop-up ---------- */
+let historyData=null, historyTried=false;
+async function loadHistory(){
+  if(historyData||historyTried) return historyData;
+  historyTried=true;
+  try{const r=await fetch("history.json",{cache:"no-store"}); if(r.ok){const d=await r.json(); if(d&&d.series) historyData=d;}}catch(e){}
+  if(!historyData) setTimeout(()=>{historyTried=false},60e3);
+  return historyData;
+}
+const ETF_SECTOR=Object.fromEntries(Object.entries(SECTOR_ETF).map(([s,t])=>[t,`${s} fund`]));
+function tickerName(t){
+  const w=watch&&watch.watchlist.find(r=>r.ticker===t);
+  return w?w.name:ETF_SECTOR[t]||(t==="SPY"?"S&P 500":"");
+}
+const RANGES=[["1Y",52],["3Y",156],["5Y",Infinity]];
+function openChart(t){
+  const back=document.activeElement;
+  const wrap=document.createElement("div");
+  wrap.className="chartbox";
+  wrap.innerHTML=`<div class="inner" role="dialog" aria-modal="true" aria-labelledby="ch-h">
+    <div class="chhead"><h2 id="ch-h">${esc(t)} <small>${esc(tickerName(t))}</small></h2><button class="ghost" data-c="close" aria-label="Close chart">Close</button></div>
+    <div class="ranges" role="group" aria-label="Time range">${RANGES.map(([l],i)=>`<button class="chip" data-r="${i}" aria-pressed="${i===2}">${l}</button>`).join("")}</div>
+    <div class="chartarea"><p class="note">Loading price history…</p></div>
+    <div class="chstats"></div>
+    <p class="note">Weekly closing prices from free public sources, refreshed twice a day. Dividends are not included.</p>
+  </div>`;
+  document.body.appendChild(wrap);
+  const close=()=>{wrap.remove();document.removeEventListener("keydown",onKey);if(back&&back.focus)back.focus()};
+  const onKey=e=>{if(e.key==="Escape")close()};
+  document.addEventListener("keydown",onKey);
+  wrap.addEventListener("click",e=>{
+    if(e.target===wrap||e.target.dataset.c==="close") close();
+    const r=e.target.dataset.r; if(r!==undefined){wrap.querySelectorAll("[data-r]").forEach(b=>b.setAttribute("aria-pressed",b.dataset.r===r));draw(+r)}
+  });
+  wrap.querySelector('[data-c="close"]').focus();
+  let series=null;
+  function draw(ri){
+    const area=wrap.querySelector(".chartarea"), stats=wrap.querySelector(".chstats");
+    if(!series){area.innerHTML=`<p class="note">No history for ${esc(t)} yet. History covers the watchlist, the movers list and the sector funds, and fills in on the next collection.</p>`;stats.innerHTML="";return}
+    const n=RANGES[ri][1], start=Math.max(0,series.closes.length-n);
+    const c=series.closes.slice(start).map(Number), d=series.dates.slice(start);
+    if(c.length<2){area.innerHTML='<p class="note">Not enough data for this range.</p>';stats.innerHTML="";return}
+    const W=Math.round(Math.max(300,Math.min(700,area.clientWidth||640))),H=W<480?220:260,L=6,R=58,T=12,B=26;
+    let lo=Math.min(...c), hi=Math.max(...c); const pad=(hi-lo)*.06||1; lo-=pad; hi+=pad;
+    const x=i=>L+i*(W-L-R)/(c.length-1), y=v=>T+(hi-v)*(H-T-B)/(hi-lo);
+    const pts=c.map((v,i)=>`${x(i).toFixed(1)},${y(v).toFixed(1)}`).join(" ");
+    const up=c.at(-1)>=c[0], col=up?"var(--up)":"var(--down)";
+    const grid=[0,1,2,3].map(k=>{const v=lo+(hi-lo)*(k+.5)/4;return `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="gl"/><text x="${W-R+6}" y="${y(v)+4}" class="gt">${money(v)}</text>`}).join("");
+    let years="",lastY="";
+    d.forEach((dt,i)=>{const yr=dt.slice(0,4); if(yr!==lastY&&i>0){years+=`<line x1="${x(i)}" x2="${x(i)}" y1="${T}" y2="${H-B}" class="gl"/><text x="${x(i)+3}" y="${H-8}" class="gt">${yr}</text>`} lastY=yr});
+    if(!years){const fmt=dt=>new Date(dt+"T12:00:00Z").toLocaleDateString([], {month:"short",day:"numeric",timeZone:"UTC"});years=`<text x="${L}" y="${H-8}" class="gt">${fmt(d[0])}</text><text x="${W-R}" y="${H-8}" class="gt" text-anchor="end">${fmt(d.at(-1))}</text>`}
+    area.innerHTML=`<svg viewBox="0 0 ${W} ${H}" class="pchart" role="img" aria-label="${esc(t)} weekly closing price, ${esc(d[0])} to ${esc(d.at(-1))}, from ${money(c[0])} to ${money(c.at(-1))}">
+      ${grid}${years}
+      <polygon points="${x(0)},${H-B} ${pts} ${x(c.length-1)},${H-B}" fill="${col}" opacity=".12"/>
+      <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>
+      <g class="hov" style="display:none"><line class="hl" y1="${T}" y2="${H-B}"/><circle r="4" fill="${col}"/><rect class="hb" rx="3" height="20"/><text class="ht"></text></g>
+      <rect x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" class="hit"/>
+    </svg>`;
+    const svg=area.querySelector("svg"), g=svg.querySelector(".hov");
+    const show=ev=>{
+      const r=svg.getBoundingClientRect(), px=(ev.clientX-r.left)*W/r.width;
+      const i=Math.max(0,Math.min(c.length-1,Math.round((px-L)/((W-L-R)/(c.length-1)))));
+      const label=`${new Date(d[i]+"T12:00:00Z").toLocaleDateString([], {month:"short",day:"numeric",year:"numeric",timeZone:"UTC"})} · ${money(c[i])}`;
+      g.style.display=""; g.querySelector(".hl").setAttribute("x1",x(i)); g.querySelector(".hl").setAttribute("x2",x(i));
+      g.querySelector("circle").setAttribute("cx",x(i)); g.querySelector("circle").setAttribute("cy",y(c[i]));
+      const tw=label.length*6.6+12, tx=Math.min(Math.max(x(i)-tw/2,L),W-R-tw);
+      g.querySelector(".hb").setAttribute("x",tx); g.querySelector(".hb").setAttribute("y",T); g.querySelector(".hb").setAttribute("width",tw);
+      const tt=g.querySelector(".ht"); tt.textContent=label; tt.setAttribute("x",tx+6); tt.setAttribute("y",T+14);
+    };
+    svg.addEventListener("pointermove",show); svg.addEventListener("pointerdown",show);
+    svg.addEventListener("pointerleave",ev=>{if(ev.pointerType==="mouse") g.style.display="none"});
+    const yearsWanted=ri===0?1:ri===1?3:5, firstDate=series.dates[0];
+    const newer=Date.parse(firstDate)>Date.now()-yearsWanted*365.25*864e5+30*864e5;
+    if(newer) area.insertAdjacentHTML("beforeend",`<p class="note" style="margin:6px 0 0">Trading since ${new Date(firstDate+"T12:00:00Z").toLocaleDateString([], {month:"short",day:"numeric",year:"numeric",timeZone:"UTC"})}, so this shows its full history.</p>`);
+    const q=quotes[t], now=q?q.price:c.at(-1), chgR=c.at(-1)/c[0]-1;
+    const avg50=series.closes.length>=50?series.closes.slice(-50).reduce((a,b)=>a+Number(b),0)/50:null;
+    const stat=(l,v)=>`<div class="kpi"><div class="v sm">${v}</div><div class="l">${l}</div></div>`;
+    stats.innerHTML=`<div class="kpis">
+      ${stat(q?"Price now":"Last weekly close",money(now))}
+      ${stat(newer?"Change since listing":`Change over ${RANGES[ri][0]}`,chg(chgR))}
+      ${stat(newer?"High / low since listing":`High / low over ${RANGES[ri][0]}`,`${money(Math.max(...c))} / ${money(Math.min(...c))}`)}
+      ${avg50?stat("Vs 50-week average",now>=avg50?'<span class="chg u">Above</span>':'<span class="chg d">Below</span>'):""}
+    </div>`;
+  }
+  loadHistory().then(h=>{series=h&&h.series[t]||null;draw(2)});
+}
+document.addEventListener("click",e=>{const el=e.target.closest&&e.target.closest("[data-tk]"); if(!el) return; e.preventDefault(); e.stopPropagation(); openChart(el.dataset.tk)},true);
+document.addEventListener("keydown",e=>{if(e.key!=="Enter"&&e.key!==" ") return; const el=e.target.closest&&e.target.closest("[data-tk]"); if(!el) return; e.preventDefault(); e.stopPropagation(); openChart(el.dataset.tk)},true);
 
 function render(){drawChips();drawMap();drawPressure();drawFeed();drawQueue();drawWatch();drawOptions();drawVoices();drawDash()}
 drawLegend(); render(); loadLive();

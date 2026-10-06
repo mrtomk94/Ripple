@@ -4,6 +4,7 @@ import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { collectHistoryToFile, HISTORY_TICKERS } from './history.js';
 import { createStore } from './store.js';
 import { corroborate } from './corroborate.js';
 import { createScheduler, publicHealth } from './scheduler.js';
@@ -60,7 +61,10 @@ export async function collectToFile(file, opts) {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const { fetchText } = await import('./fetch.js');
   const sources = (await import('./sources/index.js')).default;
-  const out = await collectToFile(process.argv[2] || 'public/events.json', { sources, fetchText });
+  const file = process.argv[2] || 'public/events.json';
+  const out = await collectToFile(file, { sources, fetchText });
+  const hist = await collectHistoryToFile(join(dirname(file), 'history.json'), { tickers: HISTORY_TICKERS, fetchText });
+  console.info(`History: ${Object.keys(hist.series || {}).length} tickers${hist.got === undefined ? '' : `, ${hist.got}/${hist.asked} refreshed`}.`);
   const failing = Object.entries(out.sources).filter(([, s]) => s.failing).map(([n]) => n);
   console.info(`Collected ${out.events.length} events.${failing.length ? ` Failing: ${failing.join(', ')}` : ' All sources OK.'}`);
   if (out.options) console.info(`Options: ${out.options.flagged.length} unusual trades from ${out.options.scanned} chains (${out.options.failed} failed).`);

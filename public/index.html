@@ -192,6 +192,21 @@ body.dragging-active{user-select:none;cursor:grabbing}
 .exportbox textarea{width:100%;height:180px;font:13px/1.4 ui-monospace,Menlo,Consolas,monospace;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:8px}
 .exportbox ol{padding-left:20px;font-size:14px}
 body.editing{padding-bottom:110px}
+.tick[data-tk]{cursor:pointer}
+.tick[data-tk]:hover{filter:brightness(1.12);text-decoration:underline}
+.chartbox{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:12px}
+.chartbox .inner{background:var(--surface);color:var(--ink);border-radius:8px;padding:16px;max-width:760px;width:100%;max-height:92vh;overflow:auto}
+.chhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.chhead h2{margin:0;font-size:28px;font-variation-settings:"wdth" 75}
+.chhead small{font-size:15px;color:var(--muted);font-weight:500}
+.ranges{display:flex;gap:6px;margin:10px 0}
+.pchart{width:100%;height:auto;display:block;touch-action:pan-y}
+.pchart .gl{stroke:var(--line);stroke-width:1}
+.pchart .gt{fill:var(--muted);font-size:12px;font-family:inherit}
+.pchart .hl{stroke:var(--muted);stroke-width:1;stroke-dasharray:3 3}
+.pchart .hb{fill:var(--ink)} .pchart .ht{fill:var(--surface);font-size:12px;font-weight:700;font-family:inherit}
+.kpi .v.sm{font-size:24px}
+.chstats .kpis{margin-top:12px}
 footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 </style>

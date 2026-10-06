@@ -32,6 +32,10 @@ Every new event (under 24 hours old) that marks a sector up or down becomes a ca
 
 Each call also has a size from how big the news is: **Small** (severity 1–2), **Medium** (3), **Big** (4–5). Size is right when the direction is right and the move vs SPY lands in that tier: under 0.5%, 0.5–1.5%, over 1.5%.
 
+## 5-year charts
+
+Click any ticker chip (watchlist, movers, events, options, Big voices) for a pop-up chart of weekly closes with 1Y / 3Y / 5Y ranges, hover or tap for a price, and stats (change, high/low, vs 50-week average). The collector writes `public/history.json` (about 50 tickers, 5 years weekly) twice a day. On GitHub Actions it reuses the live site's copy between refreshes, found through the built-in `GITHUB_REPOSITORY` variable, so the workflow needs no changes. Stocks listed recently (like SPCX, June 2026) show their full history since listing.
+
 ## Watchlist and movers
 
 `src/watchlist.js` lists the watchlist (SPY, QQQ, NVDA, MU, TSLA, SPCX, META, GOOGL, NFLX, AAPL, MSFT, AMZN) and about 40 large stocks scanned for the day's biggest movers. Each shows price, today's change, and trend vs its 20- and 50-day averages. Edit the file to change the lists.
