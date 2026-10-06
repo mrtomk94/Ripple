@@ -84,3 +84,38 @@ test('resolved predictions are kept before 90 days', () => {
   const p = lifecycle(1, 102, 505);
   assert.equal(updatePredictions([p], {}, () => NOW + 60 * 24 * H).length, 1);
 });
+
+import { tierFor, sizeTier } from '../src/predictions.js';
+test('call size comes from how big the news is', () => {
+  assert.equal(tierFor(1), 'small'); assert.equal(tierFor(2), 'small');
+  assert.equal(tierFor(3), 'medium');
+  assert.equal(tierFor(4), 'big'); assert.equal(tierFor(5), 'big');
+});
+test('actual size tiers: under 0.5%, 0.5 to 1.5%, over 1.5% vs the market', () => {
+  assert.equal(sizeTier(0.003), 'small'); assert.equal(sizeTier(-0.01), 'medium'); assert.equal(sizeTier(0.02), 'big');
+});
+test('predictions carry their tier and score whether the size was right', () => {
+  let preds = addPredictions([], [{ ...event('a', 1, [{ s: 'Energy', d: 1 }]), sev: 4 }], () => NOW);
+  assert.equal(preds[0].tier, 'big');
+  preds = updatePredictions(preds, { XLE: q(100, '2026-10-05'), SPY: q(500, '2026-10-05') }, () => NOW);
+  preds = updatePredictions(preds, { XLE: q(104, '2026-10-06'), SPY: q(505, '2026-10-06') }, () => NOW + 25 * H);
+  assert.equal(preds[0].status, 'hit');
+  assert.equal(preds[0].actualTier, 'big');
+  assert.equal(preds[0].sizeHit, true);
+});
+test('a direction miss is never a size hit', () => {
+  let preds = addPredictions([], [{ ...event('a', 1, [{ s: 'Energy', d: 1 }]), sev: 2 }], () => NOW);
+  preds = updatePredictions(preds, { XLE: q(100, '2026-10-05'), SPY: q(500, '2026-10-05') }, () => NOW);
+  preds = updatePredictions(preds, { XLE: q(100, '2026-10-06'), SPY: q(501.5, '2026-10-06') }, () => NOW + 25 * H);
+  assert.equal(preds[0].status, 'miss');
+  assert.equal(preds[0].sizeHit, false);
+});
+test('scorecard: by tier, size accuracy and daily history', () => {
+  const day = (d) => Date.parse(`2026-10-0${d}T20:00:00Z`);
+  const mk = (i, tier, status, sizeHit, d) => ({ id: `${i}`, sector: 'Energy', ticker: 'XLE', d: 1, tier, status, sizeHit, resolvedAt: day(d), title: 't', excess: 0.01 });
+  const card = scorecard([mk(1, 'big', 'hit', true, 1), mk(2, 'big', 'miss', false, 1), mk(3, 'small', 'hit', false, 2), mk(4, 'small', 'flat', false, 2)]);
+  assert.deepEqual(card.byTier.big, { scored: 2, hits: 1, sizeHits: 1 });
+  assert.deepEqual(card.byTier.small, { scored: 1, hits: 1, sizeHits: 0 });
+  assert.equal(card.sizeRate, 1 / 3);
+  assert.deepEqual(card.daily, [{ date: '2026-10-01', scored: 2, hits: 1 }, { date: '2026-10-02', scored: 1, hits: 1 }]);
+});

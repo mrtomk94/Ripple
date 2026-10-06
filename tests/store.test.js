@@ -64,3 +64,11 @@ test('load survives a missing or corrupt file', async () => {
   await s2.load();
   assert.equal(s2.list().length, 0);
 });
+
+test('a fresh copy of a story keeps the outlets it was already confirmed by', () => {
+  const s = createStore({ file: join(dir(), 'e.json'), now: () => NOW });
+  s.upsert([ev('a', 0, { sources: [{ src: 'BBC World', outlet: 'BBC', link: 'https://b' }, { src: 'NPR News', outlet: 'NPR', link: 'https://n' }] })]);
+  s.upsert([ev('a', 0, { sev: 4 })]);
+  assert.equal(s.list()[0].sev, 4);
+  assert.equal(s.list()[0].sources.length, 2);
+});

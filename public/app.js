@@ -116,7 +116,7 @@ let added=[];
 try{added=JSON.parse(localStorage.getItem("ripple-added")||"[]")||[]}catch(e){added=[]}
 function save(){try{localStorage.setItem("ripple-added",JSON.stringify(added))}catch(e){}}
 
-let filter="all", selected=null, firstDraw=true, live=null, card=null, preds=[];
+let filter="all", selected=null, firstDraw=true, live=null, card=null, preds=[], quotes={}, watch=null;
 const all=()=>[...added,...(live||SNAPSHOT)];
 const when=d=>{const t=Date.parse(d);return Number.isNaN(t)?String(d):new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})};
 const safeUrl=u=>/^https?:\/\//.test(u||"")?u:"";
@@ -139,6 +139,8 @@ async function loadLive(){
     const data=await fetchEvents();
     live=data.events;
     card=data.scorecard||null;
+    quotes=(data.market&&data.market.quotes)||{};
+    watch=data.watch||null;
     preds=Array.isArray(data.predictions)?data.predictions:[];
     const age=Date.now()-Number(data.generatedAt);
     const stale=age>2*3600e3?" That's over 2 hours ago, so collection may be paused.":"";
@@ -146,7 +148,7 @@ async function loadLive(){
       ? `Live: ${live.length} events from trusted sources, collected ${when(new Date(Number(data.generatedAt)).toISOString())}.${stale}`
       : "Live, but no events collected yet. The first collection runs within 15 minutes.";
   }catch(e){
-    live=null; card=null; preds=[];
+    live=null; card=null; preds=[]; quotes={}; watch=null;
     $("#snap").textContent="Live feed unreachable, showing the Sept 30, 2026 snapshot. Retrying every 5 minutes.";
   }
   render();
@@ -177,9 +179,13 @@ function drawLegend(){
   $("#legend").innerHTML=Object.values(CATS).map(c=>`<span style="--c:var(${c.v})">${c.label}</span>`).join("");
 }
 
-function drawPressure(){
+function sectorPressure(list){
   const score={}; SECTORS.forEach(s=>score[s]=0);
-  visible().forEach(e=>(e.sectors||[]).forEach(x=>{if(x.s in score) score[x.s]+=e.sev*x.d}));
+  list.forEach(e=>(e.sectors||[]).forEach(x=>{if(x.s in score) score[x.s]+=e.sev*x.d}));
+  return score;
+}
+function drawPressure(){
+  const score=sectorPressure(visible());
   const max=Math.max(5,...Object.values(score).map(Math.abs));
   const rows=SECTORS.map(s=>[s,score[s]]).sort((a,b)=>b[1]-a[1]);
   $("#press").innerHTML=rows.map(([s,v])=>{
@@ -208,15 +214,15 @@ function drawFeed(){
         <p>${esc(e.what)}</p>
         <h3>Chain reaction</h3><ol>${(e.chain||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
         <h3>Sectors touched</h3><div class="sects">${(e.sectors||[]).map(x=>`<div class="sect">${dirTag(x.d)}<span><b>${esc(x.s)}</b>: ${esc(x.why)}</span></div>`).join("")}</div>
-        <h3>Tickers to watch</h3><div>${(e.watch||[]).map(t=>tickChip(t,tickerDir(e,t))).join("")}</div>
+        <h3>Tickers to watch</h3><div>${(e.watch||[]).map(t=>tickerRow(e,t)).join("")}</div>
         ${(()=>{const mine=preds.filter(p=>p.eventId===e.id);return mine.length?`<h3>How the calls did</h3><div class="sects">${mine.map(p=>`<div class="sect">${resultTag(p.status)}<span>${tickChip(p.ticker,p.d)}${typeof p.excess==="number"?`${signed(p.excess)} vs the market`:p.status==="pending"?"checked after the next trading day":""}</span></div>`).join("")}</div>`:""})()}
-        <div class="src">${esc(e.src)}${safeUrl(e.link)?` · <a href="${esc(e.link)}" target="_blank" rel="noopener noreferrer">Read the source</a>`:""}</div>
+        ${outlets(e).length>1?`<h3>Reported by ${outlets(e).length} trusted outlets</h3><ul class="srclist">${outlets(e).map(x=>`<li>${safeUrl(x.link)?`<a href="${esc(x.link)}" target="_blank" rel="noopener noreferrer">${esc(x.src)}</a>`:esc(x.src)}</li>`).join("")}</ul>`:`<div class="src">${esc(e.src)}${safeUrl(e.link)?` · <a href="${esc(e.link)}" target="_blank" rel="noopener noreferrer">Read the source</a>`:""}</div>`}
         ${e.mine?`<div class="row"><button class="ghost" data-del="${e.id}">Remove from board</button></div>`:""}
       </div>`;
     }
     return `<article class="ev ${on?"on":""}" id="ev-${e.id}" style="--c:${c}">
       <button class="evh" data-id="${e.id}" aria-expanded="${on}">
-        <strong>${esc(e.title)}${e.mine?'<span class="mine">Yours</span>':""}</strong>
+        <strong>${esc(e.title)}${e.mine?'<span class="mine">Yours</span>':""}${confBadge(e)}</strong>
         <span class="sev" aria-label="Size ${e.sev} of 5">${bars}</span>
         <span class="meta">${esc([(CATS[e.cat]||CATS.markets).label,e.region,when(e.date)].filter(Boolean).join(", "))}</span>
       </button>${body}</article>`;
@@ -238,33 +244,97 @@ function tickChip(t,d){
   const label=d>0?"predicted up":d<0?"predicted down":"no direction";
   return `<span class="tick${cls}" title="${esc(t)}: ${label}" aria-label="${esc(t)}, ${label}">${arrow}${esc(t)}</span>`;
 }
+const TIER_NAME={small:"Small",medium:"Medium",big:"Big"};
+const tierFor=sev=>sev>=4?"big":sev>=3?"medium":"small";
+const money=x=>`$${x>=1000?x.toLocaleString(undefined,{maximumFractionDigits:0}):x.toFixed(2)}`;
+function chg(x){if(typeof x!=="number")return"";const c=x>0?"u":x<0?"d":"";return `<span class="chg ${c}">${x>0?"+":""}${(x*100).toFixed(2)}%</span>`}
+function tickerRow(e,t){
+  const d=tickerDir(e,t), q=quotes[t];
+  const call=d?`<span class="tier">${TIER_NAME[tierFor(e.sev)]} ${d>0?"up":"down"} call</span>`:`<span class="tier">No call</span>`;
+  const px=q?`<span><span class="num">${money(q.price)}</span> ${chg(q.changePct)} <span class="tier">today</span></span>`:"";
+  return `<div class="trow">${tickChip(t,d)}${call}${px}</div>`;
+}
+function ago(d){
+  const m=Math.round((Date.now()-Date.parse(d))/60000);
+  if(!Number.isFinite(m)) return "";
+  if(m<1) return "just now"; if(m<60) return `${m} min ago`;
+  const h=Math.round(m/60); if(h<24) return `${h} hr ago`;
+  return `${Math.round(h/24)} days ago`;
+}
+const outlets=e=>Array.isArray(e.sources)?e.sources:[];
+const confBadge=e=>outlets(e).length>1?`<span class="conf">Confirmed by ${outlets(e).length} sources</span>`:"";
+
+function drawQueue(){
+  const list=all().slice().sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0)).slice(0,5);
+  $("#queue").innerHTML=list.length?list.map(e=>{
+    const c=`var(${(CATS[e.cat]||CATS.markets).v})`;
+    const who=outlets(e).length?outlets(e).map(x=>x.outlet||x.src).join(" · "):(e.src||"");
+    return `<li class="qi" style="--c:${c}"><button data-q="${esc(e.id)}"><div class="qt">${esc(e.title)}</div><div class="qm">${esc(ago(e.date))} · ${esc(who)}${confBadge(e)}</div></button></li>`;
+  }).join(""):'<li class="note">No stories yet.</li>';
+  $("#queue").querySelectorAll("[data-q]").forEach(b=>b.onclick=()=>{filter="all";select(b.dataset.q,true)});
+}
+
 const pct=x=>`${Math.round(x*100)}%`;
 const signed=x=>`${x>0?"+":""}${(x*100).toFixed(1)}%`;
 const resultTag=st=>st==="hit"?'<span class="res hit">✓ Hit</span>':st==="miss"?'<span class="res miss">✗ Miss</span>':st==="flat"?'<span class="res">Tie</span>':'<span class="res">Waiting</span>';
 
-function drawScore(){
-  const el=$("#score");
-  if(!card){el.innerHTML='<p class="note">The scorecard appears when live data loads.</p>';return}
+function trendTag(t){return t==="up"?'<span class="trend up">Uptrend</span>':t==="down"?'<span class="trend down">Downtrend</span>':t?'<span class="trend">Mixed</span>':""}
+
+function drawWatch(){
+  const w=$("#watch"), m=$("#movers");
+  if(!watch){w.innerHTML='<p class="note">Prices appear when live data loads.</p>';m.innerHTML="";return}
+  const press=sectorPressure(live||[]);
+  w.innerHTML=watch.watchlist.map(r=>{
+    const p=r.sector?press[r.sector]||0:0;
+    const news=r.mentions&&r.mentions.length?` · ${r.mentions.length} in the news`:"";
+    const label=r.sector?`${esc(r.name)}<small>${esc(r.sector)}${news}</small>`:`${esc(r.name)}<small>Market${news}</small>`;
+    return `<div class="wrow">${tickChip(r.ticker,Math.sign(p))}<span class="nm">${label}</span><span class="num">${typeof r.price==="number"?money(r.price):"–"}<br>${chg(r.changePct)}</span>${trendTag(r.trend)}</div>`;
+  }).join("");
+  const list=(rows,empty)=>rows.length?rows.map(r=>`<div class="mrow"><b>${esc(r.ticker)}</b>${chg(r.changePct)}</div>`).join(""):`<p class="note">${empty}</p>`;
+  m.innerHTML=`<div class="mv"><div><h3>Up</h3>${list(watch.movers.up,"None yet")}</div><div><h3>Down</h3>${list(watch.movers.down,"None yet")}</div></div>`;
+}
+
+function drawDash(){
+  const el=$("#dash");
+  if(!card){el.innerHTML='<p class="note">The dashboard appears when live data loads.</p>';return}
+  const r=(n,d)=>d?pct(n/d):"–";
+  const kpi=(v,l)=>`<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`;
+  let h=`<div class="kpis">
+    ${kpi(card.hitRate===null?"–":pct(card.hitRate),"Direction right")}
+    ${kpi(card.sizeRate==null?"–":pct(card.sizeRate),"Direction and size right")}
+    ${kpi(card.scored,"Calls scored")}
+    ${kpi(card.pending,"Waiting for the next close")}
+  </div>`;
   if(!card.scored){
-    el.innerHTML=`<p class="note">${card.pending?`Tracking ${card.pending} call${card.pending===1?"":"s"}. First results arrive after the next trading day closes.`:"No calls yet. New events with an up or down sector start a call."}</p>`;
+    el.innerHTML=h+`<p class="note">${card.pending?"First results arrive after the next trading day closes.":"No calls yet. New events with an up or down sector start a call."}</p>`;
     return;
   }
   const rate=card.hitRate, col=rate>=.5?"var(--up)":"var(--down)";
-  const sectors=Object.entries(card.bySector).sort((a,b)=>b[1].scored-a[1].scored);
-  el.innerHTML=`<div class="score">
-    <div class="bigrow"><span class="big">${pct(rate)}</span><span>${card.hits} of ${card.scored} calls right${card.pending?`, ${card.pending} waiting`:""}</span></div>
-    <div class="vs" aria-hidden="true"><div class="fill" style="width:${rate*100}%;background:${col}"></div><div class="coin"></div></div>
+  h+=`<div class="vs" aria-hidden="true"><div class="fill" style="width:${rate*100}%;background:${col}"></div><div class="coin"></div></div>
     <div class="vslab"><span>0%</span><span>Coin flip 50%</span><span>100%</span></div>
-    ${card.scored<30?`<p class="note">Only ${card.scored} call${card.scored===1?"":"s"} scored so far. Treat this as rough until 30 or more.</p>`:""}
-    <h3>By sector</h3>
-    ${sectors.map(([s,b])=>`<div class="srow"><span>${esc(s)}</span><span class="num">${b.hits}/${b.scored}</span><span class="num">${pct(b.hits/b.scored)}</span></div>`).join("")}
-    <h3>Latest results</h3>
-    ${(card.recent||[]).map(r=>`<div class="rrow">${resultTag(r.status)}<span class="t" title="${esc(r.title)}">${tickChip(r.ticker,r.d)} ${esc(r.title)}</span><span class="num">${typeof r.excess==="number"?signed(r.excess):""}</span></div>`).join("")}
-    <p class="note">The number on the right is how the fund did compared with the market.</p>
+    ${card.scored<30?`<p class="note">Only ${card.scored} call${card.scored===1?"":"s"} scored so far. Treat these numbers as rough until 30 or more.</p>`:""}`;
+  const tiers=["big","medium","small"].filter(t=>card.byTier&&card.byTier[t]);
+  const tierTbl=`<div class="scroll"><table class="tbl"><thead><tr><th>Call size</th><th class="r">Calls</th><th class="r">Direction right</th><th class="r">Size right</th></tr></thead><tbody>
+    ${tiers.map(t=>{const b=card.byTier[t];return `<tr><td>${TIER_NAME[t]}</td><td class="r">${b.scored}</td><td class="r">${r(b.hits,b.scored)}</td><td class="r">${r(b.sizeHits,b.scored)}</td></tr>`}).join("")}
+  </tbody></table></div>`;
+  const secs=Object.entries(card.bySector).sort((a,b)=>b[1].scored-a[1].scored);
+  const secTbl=`<div class="scroll"><table class="tbl"><thead><tr><th>Sector</th><th class="r">Calls</th><th class="r">Direction right</th></tr></thead><tbody>
+    ${secs.map(([s,b])=>`<tr><td>${esc(s)}</td><td class="r">${b.scored}</td><td class="r">${r(b.hits,b.scored)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+  const days=card.daily||[];
+  const histo=days.length?`<div class="hist" role="img" aria-label="Daily direction hit rate">${days.map(d=>{const v=d.hits/d.scored;return `<div class="b" title="${d.date}: ${d.hits}/${d.scored} right"><div class="half"></div><i style="height:${Math.max(4,v*100)}%;background:${v>=.5?"var(--up)":"var(--down)"}"></i></div>`}).join("")}</div>
+    <div class="histlab"><span>${days[0].date.slice(5)}</span><span>Dashed line = 50%</span><span>${days.at(-1).date.slice(5)}</span></div>`:"";
+  const recent=`<div>${(card.recent||[]).map(x=>`<div class="rrow">${resultTag(x.status)}<span class="t" title="${esc(x.title)}">${tickChip(x.ticker,x.d)} <span class="tier">${TIER_NAME[x.tier]||""} call${x.actualTier?`, moved ${TIER_NAME[x.actualTier].toLowerCase()}`:""}</span> ${esc(x.title)}</span><span class="num">${typeof x.excess==="number"?signed(x.excess):""}</span></div>`).join("")}</div>`;
+  h+=`<div class="dgrid">
+    <div><h3 class="tier" style="margin:0 0 6px">By call size</h3>${tierTbl}<p class="note">If bigger calls aren't more accurate than small ones, the size tiers aren't telling you anything yet.</p></div>
+    <div><h3 class="tier" style="margin:0 0 6px">Daily direction hit rate (last 14 days)</h3>${histo}</div>
+    <div><h3 class="tier" style="margin:0 0 6px">By sector</h3>${secTbl}</div>
+    <div><h3 class="tier" style="margin:0 0 6px">Latest results</h3>${recent}<p class="note">The number on the right is how the fund did compared with the market.</p></div>
   </div>`;
+  el.innerHTML=h;
 }
 
-function render(){drawChips();drawMap();drawPressure();drawFeed();drawScore()}
+function render(){drawChips();drawMap();drawPressure();drawFeed();drawQueue();drawWatch();drawDash()}
 drawLegend(); render(); loadLive();
 setInterval(loadLive,5*60e3);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden) loadLive()});

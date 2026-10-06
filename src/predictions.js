@@ -11,6 +11,10 @@ const FLAT = 0.001;             // under 0.1% vs the market is a tie
 const START_TIMEOUT_DAYS = 4;   // give up if we never got a starting price
 const KEEP_DAYS = 90;
 
+// Call size from how big the news is; actual size from the move vs the market.
+export const tierFor = (sev) => (sev >= 4 ? 'big' : sev >= 3 ? 'medium' : 'small');
+export const sizeTier = (excess) => { const a = Math.abs(excess); return a > 0.015 ? 'big' : a >= 0.005 ? 'medium' : 'small'; };
+
 export function addPredictions(preds, events, now = Date.now) {
   const have = new Set(preds.map((p) => p.id));
   const out = [...preds];
@@ -22,7 +26,7 @@ export function addPredictions(preds, events, now = Date.now) {
       const id = `${e.id}|${ticker}`;
       if (have.has(id)) continue;
       have.add(id);
-      out.push({ id, eventId: e.id, title: e.title, sector: s.s, ticker, d: s.d, madeAt: now(), status: 'pending', start: null, end: null });
+      out.push({ id, eventId: e.id, title: e.title, sector: s.s, ticker, d: s.d, tier: tierFor(e.sev ?? 2), madeAt: now(), status: 'pending', start: null, end: null });
     }
   }
   return out;
@@ -45,7 +49,9 @@ function score(p, quotes, t) {
   const mktRet = mkt.price / p.start.mkt - 1;
   const excess = ret - mktRet;
   const status = Math.abs(excess) < FLAT ? 'flat' : Math.sign(excess) === p.d ? 'hit' : 'miss';
-  return { ...p, end: { price: fund.price, mkt: mkt.price, date: fund.date }, ret, mktRet, excess, status, resolvedAt: t };
+  const actualTier = sizeTier(excess);
+  const sizeHit = status === 'hit' && actualTier === (p.tier || 'small');
+  return { ...p, end: { price: fund.price, mkt: mkt.price, date: fund.date }, ret, mktRet, excess, status, actualTier, sizeHit, resolvedAt: t };
 }
 
 export function updatePredictions(preds, quotes, now = Date.now) {
@@ -59,18 +65,29 @@ export function scorecard(preds) {
   const scored = preds.filter((p) => p.status === 'hit' || p.status === 'miss');
   const hits = scored.filter((p) => p.status === 'hit').length;
   const bySector = {};
+  const byTier = {};
+  const days = {};
+  let sizeHits = 0;
   for (const p of scored) {
     const b = (bySector[p.sector] ??= { hits: 0, scored: 0 });
     b.scored++;
-    if (p.status === 'hit') b.hits++;
+    const tb = (byTier[p.tier || 'small'] ??= { scored: 0, hits: 0, sizeHits: 0 });
+    tb.scored++;
+    const day = new Date(p.resolvedAt).toISOString().slice(0, 10);
+    const db = (days[day] ??= { date: day, scored: 0, hits: 0 });
+    db.scored++;
+    if (p.status === 'hit') { b.hits++; tb.hits++; db.hits++; }
+    if (p.sizeHit) { tb.sizeHits++; sizeHits++; }
   }
   const recent = preds
     .filter((p) => ['hit', 'miss', 'flat'].includes(p.status))
     .sort((a, b) => b.resolvedAt - a.resolvedAt)
     .slice(0, 15)
-    .map(({ id, title, sector, ticker, d, status, excess }) => ({ id, title, sector, ticker, d, status, excess }));
+    .map(({ id, title, sector, ticker, d, tier, status, excess, actualTier, sizeHit }) => ({ id, title, sector, ticker, d, tier, status, excess, actualTier, sizeHit }));
   return {
     scored: scored.length, hits, hitRate: scored.length ? hits / scored.length : null,
-    pending: preds.filter((p) => p.status === 'pending').length, bySector, recent,
+    sizeRate: scored.length ? sizeHits / scored.length : null,
+    pending: preds.filter((p) => p.status === 'pending').length, bySector, byTier,
+    daily: Object.values(days).sort((a, b) => a.date.localeCompare(b.date)).slice(-14), recent,
   };
 }

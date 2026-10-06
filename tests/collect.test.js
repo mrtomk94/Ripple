@@ -51,7 +51,7 @@ test('collectToFile starts fresh when the old file is missing or corrupt', async
 
 test('tracks predictions across runs and scores them a trading day later', async () => {
   const H = 3600e3;
-  const csv = (price, date) => `Symbol,Date,Time,Open,High,Low,Close,Volume\nX.US,${date},16:00:00,1,1,1,${price},1`;
+  const csv = (price, date) => `Date,Open,High,Low,Close,Volume\n2026-10-01,1,1,1,${price},1\n${date},1,1,1,${price},1\n`;
   const fresh = { ...ev('oil', 0), sectors: [{ s: 'Energy', d: 1 }] };
   const prices = (xle, spy, date) => async (u) => (u.includes('xle') ? csv(xle, date) : u.includes('spy') ? csv(spy, date) : '');
   const first = await collect({ sources: [src('a', [fresh])], fetchText: prices(100, 500, '2026-10-06'), log: quiet, now: () => NOW });
@@ -59,11 +59,33 @@ test('tracks predictions across runs and scores them a trading day later', async
   assert.equal(first.predictions[0].start.price, 100);
   assert.equal(first.scorecard.pending, 1);
   const second = await collect({ sources: [src('a', [])], fetchText: prices(103, 505, '2026-10-07'), log: quiet, now: () => NOW + 26 * H, previous: first });
+  assert.equal(second.predictions[0].tier, 'small');
   assert.equal(second.predictions[0].status, 'hit');
   assert.equal(second.scorecard.hitRate, 1);
 });
-test('no price lookups when nothing is pending', async () => {
+test('weekend runs reuse Friday prices instead of refetching', async () => {
+  const sat = Date.parse('2026-10-10T15:00:00Z');
+  const previous = { market: { fetchedAt: sat - 20 * 3600e3, quotes: { SPY: { price: 1, date: '2026-10-09' } } } };
   const urls = [];
-  await collect({ sources: [], fetchText: async (u) => { urls.push(u); return ''; }, log: quiet, now: () => NOW });
+  const out = await collect({ sources: [], fetchText: async (u) => { urls.push(u); return ''; }, log: quiet, now: () => sat, previous });
   assert.equal(urls.length, 0);
+  assert.equal(out.market.reused, true);
+});
+
+test('market data: watchlist and movers included, refetch skipped within 30 minutes', async () => {
+  const hist = 'Date,Open,High,Low,Close,Volume\n2026-10-05,1,1,1,100,1\n2026-10-06,1,1,1,102,1\n';
+  let calls = 0;
+  const fetchText = async (u) => { if (u.includes('stooq')) { calls++; return hist; } return ''; };
+  const first = await collect({ sources: [], fetchText, log: quiet, now: () => NOW });
+  assert.ok(calls >= 30);
+  assert.equal(first.market.quotes.NVDA.price, 102);
+  assert.ok(first.watch.watchlist.some((r) => r.ticker === 'SPCX'));
+  assert.ok(first.watch.movers.up.length > 0);
+  calls = 0;
+  const again = await collect({ sources: [], fetchText, log: quiet, now: () => NOW + 10 * 60e3, previous: first });
+  assert.equal(calls, 0);
+  assert.equal(again.market.quotes.NVDA.price, 102);
+  calls = 0;
+  await collect({ sources: [], fetchText, log: quiet, now: () => NOW + 40 * 60e3, previous: first });
+  assert.ok(calls >= 30);
 });

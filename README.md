@@ -13,7 +13,9 @@ It is a research tool, not financial advice. Markets often price news in within 
 | GDACS (UN/EU) | Orange and red disaster alerts worldwide | 30 min |
 | NASA EONET | Volcanoes and severe storms | 60 min |
 | Federal Reserve, ECB | Monetary policy releases | 60 min |
-| BBC World, Business, Technology | Headlines matching market keywords | 30 min |
+| BBC, NPR, The Guardian, Al Jazeera, CNBC, DW | Headlines matching market keywords | 30 min |
+
+When different outlets report the same story (shared key words, same category and place, within 36 hours, same direction), it becomes one item listing every outlet, shown as "Confirmed by N sources." Two feeds from the same outlet count once.
 
 Only headlines, links, dates, and Ripple's own tags are stored. Article text is never copied. Events expire after 14 days.
 
@@ -28,7 +30,13 @@ Every new event (under 24 hours old) that marks a sector up or down becomes a ca
 - Mixed sectors aren't scored. Calls with no starting price after 4 days expire. Results are kept 90 days.
 - A coin flip scores about 50%, so that is the bar to beat. Under 30 scored calls, the % is rough.
 
-Prices come from Stooq (free, no key), with Yahoo's chart API as a backup. The Actions log line `Prices: X/Y quotes` shows whether they are coming through.
+Each call also has a size from how big the news is: **Small** (severity 1–2), **Medium** (3), **Big** (4–5). Size is right when the direction is right and the move vs SPY lands in that tier: under 0.5%, 0.5–1.5%, over 1.5%.
+
+## Watchlist and movers
+
+`src/watchlist.js` lists the watchlist (SPY, QQQ, NVDA, MU, TSLA, SPCX, META, GOOGL, NFLX, AAPL, MSFT, AMZN) and about 40 large stocks scanned for the day's biggest movers. Each shows price, today's change, and trend vs its 20- and 50-day averages. Edit the file to change the lists.
+
+Prices are daily history from Stooq (free, no key), with Yahoo's chart API as a backup. They refresh every 30 minutes on weekdays and are reused over weekends. The Actions log line `Prices: X/Y quotes` shows whether they are coming through.
 
 ## Run locally
 

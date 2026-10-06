@@ -21,7 +21,7 @@ export function dedupeSectors(list) {
 }
 
 // Build a normalized event. Returns null when required pieces are missing.
-export function makeEvent({ source, key, title, link, date, cat, sev, lat, lng, region, what, chain, sectors, src }) {
+export function makeEvent({ source, key, title, link, date, cat, sev, lat, lng, region, what, chain, sectors, src, outlet }) {
   const time = Date.parse(date);
   if (!title || !/^https?:\/\//.test(link || '') || Number.isNaN(time) || !CATEGORIES.includes(cat)) return null;
   let la = num(lat), lo = num(lng);
@@ -34,5 +34,6 @@ export function makeEvent({ source, key, title, link, date, cat, sev, lat, lng, 
     what: what || '', chain: chain || [], sectors: secs,
     watch: [...new Set(secs.map((s) => SECTOR_ETF[s.s]).filter(Boolean))],
     src: src || source,
+    ...(outlet ? { outlet } : {}),
   };
 }

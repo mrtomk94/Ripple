@@ -5,9 +5,15 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { createStore } from './store.js';
+import { corroborate } from './corroborate.js';
 import { createScheduler, publicHealth } from './scheduler.js';
 import { addPredictions, updatePredictions, neededTickers, scorecard } from './predictions.js';
-import { getQuotes } from './prices.js';
+import { getMarket, isWeekendNY } from './market.js';
+import { UNIVERSE, buildWatch } from './watchlist.js';
+import { SECTOR_ETF } from './event.js';
+import { BENCHMARK } from './predictions.js';
+
+const MARKET_REFRESH_MS = 30 * 60e3;
 
 export async function collect({ sources, fetchText, previous = {}, log = console, now = Date.now }) {
   const store = createStore({ file: join(tmpdir(), `ripple-${process.pid}.json`), now });
@@ -15,16 +21,29 @@ export async function collect({ sources, fetchText, previous = {}, log = console
   const noSave = { upsert: (e) => store.upsert(e), prune: () => store.prune(), save: async () => {} };
   const scheduler = createScheduler({ sources, store: noSave, fetchText, log, now });
   for (const s of sources) await scheduler.runSource(s);
-  const events = store.list({ limit: 500 });
+  const events = corroborate(store.list()).slice(0, 500);
   let predictions = addPredictions(Array.isArray(previous.predictions) ? previous.predictions : [], events, now);
-  const tickers = neededTickers(predictions);
-  const quotes = tickers.length ? await getQuotes(tickers, fetchText) : {};
+  const market = await marketData({ previous: previous.market, predictions, fetchText, now });
+  const quotes = market.quotes;
   predictions = updatePredictions(predictions, quotes, now);
   return {
     generatedAt: now(), sources: publicHealth(scheduler.status()), events,
-    prices: { asked: tickers.length, got: Object.keys(quotes).length },
+    market, watch: buildWatch(quotes, events),
     predictions, scorecard: scorecard(predictions),
   };
+}
+
+// Prices for sector funds, the benchmark, the watchlist and the movers scan.
+// Reused for 30 minutes (and over weekends) to stay gentle on the free sources.
+async function marketData({ previous, predictions, fetchText, now }) {
+  const t = now();
+  const prevOk = previous && previous.quotes && Number.isFinite(previous.fetchedAt);
+  if (prevOk && (t - previous.fetchedAt < MARKET_REFRESH_MS || (isWeekendNY(t) && t - previous.fetchedAt < 3 * 864e5))) {
+    return { ...previous, reused: true };
+  }
+  const wanted = [...new Set([...Object.values(SECTOR_ETF), BENCHMARK, ...UNIVERSE, ...neededTickers(predictions)])];
+  const quotes = await getMarket(wanted, fetchText, now);
+  return { fetchedAt: t, asked: wanted.length, got: Object.keys(quotes).length, quotes };
 }
 
 export async function collectToFile(file, opts) {
@@ -42,5 +61,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const out = await collectToFile(process.argv[2] || 'public/events.json', { sources, fetchText });
   const failing = Object.entries(out.sources).filter(([, s]) => s.failing).map(([n]) => n);
   console.info(`Collected ${out.events.length} events.${failing.length ? ` Failing: ${failing.join(', ')}` : ' All sources OK.'}`);
-  console.info(`Prices: ${out.prices.got}/${out.prices.asked} quotes. Predictions: ${out.scorecard.pending} pending, ${out.scorecard.scored} scored${out.scorecard.hitRate === null ? '' : `, ${Math.round(out.scorecard.hitRate * 100)}% hit rate`}.`);
+  console.info(`Prices: ${out.market.reused ? 'reused from last run' : `${out.market.got}/${out.market.asked} quotes`}. Predictions: ${out.scorecard.pending} pending, ${out.scorecard.scored} scored${out.scorecard.hitRate === null ? '' : `, ${Math.round(out.scorecard.hitRate * 100)}% hit rate`}.`);
 }

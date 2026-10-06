@@ -73,6 +73,15 @@ test('event ids are stable across parses', () => {
   const b = news.parse(fx('bbc.xml'), { label: 'BBC World' });
   assert.deepEqual(a.map((e) => e.id), b.map((e) => e.id));
 });
+test('news pulls from several trusted outlets', () => {
+  const outlets = new Set(news.feeds.map((f) => f.outlet));
+  for (const o of ['BBC', 'NPR', 'The Guardian', 'Al Jazeera', 'CNBC', 'DW']) assert.ok(outlets.has(o), o);
+  assert.ok(news.feeds.every((f) => f.label && f.outlet));
+});
+test('news events record their outlet', () => {
+  const [e] = news.parse(fx('bbc.xml'), { label: 'BBC World', outlet: 'BBC' });
+  assert.equal(e.outlet, 'BBC');
+});
 test('source registry lists every source with https feeds', () => {
   assert.equal(sources.length, 6);
   for (const s of sources) {

@@ -19,8 +19,9 @@ export function createStore({ file, now = Date.now, maxAgeDays = 14, maxEvents =
       let added = 0;
       for (const e of events) {
         if (!e?.id || !fresh(e)) continue;
-        if (!items.has(e.id)) added++;
-        items.set(e.id, e);
+        const old = items.get(e.id);
+        if (!old) added++;
+        items.set(e.id, old?.sources && !e.sources ? { ...e, sources: old.sources } : e);
       }
       enforceCap();
       return added;
