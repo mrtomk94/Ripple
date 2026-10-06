@@ -1,4 +1,4 @@
-export async function fetchText(url, { timeoutMs = 20000, maxBytes = 5_000_000, fetchFn = fetch } = {}) {
+export async function fetchText(url, { timeoutMs = 20000, maxBytes = 2_000_000, fetchFn = fetch } = {}) {
   const res = await fetchFn(url, {
     headers: { 'user-agent': 'Ripple/0.2 (world event radar)', accept: 'application/rss+xml, application/xml, application/json, text/xml;q=0.9, */*;q=0.5' },
     signal: AbortSignal.timeout(timeoutMs),

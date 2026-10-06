@@ -15,14 +15,30 @@ export function decodeText(raw) {
     .trim();
 }
 
-const BLOCK = /<(item|entry)\b[^>]*>([\s\S]*?)<\/\1>/g;
+export const MAX_ITEMS = 500;
+
+// Linear scan for <item>/<entry> blocks: each search continues from where the
+// last one ended, so a feed full of unclosed tags can't trigger rescans.
+function* blocks(xml, tag) {
+  const open = new RegExp(`<${tag}(?=[\\s>])`, 'g');
+  const close = `</${tag}>`;
+  let m;
+  while ((m = open.exec(xml))) {
+    const start = xml.indexOf('>', m.index);
+    const end = start === -1 ? -1 : xml.indexOf(close, start);
+    if (end === -1) return;
+    yield xml.slice(start + 1, end);
+    open.lastIndex = end + close.length;
+  }
+}
 const LEAF = /<([\w:.-]+)(?:\s[^>]*)?>((?:<!\[CDATA\[[\s\S]*?\]\]>|[^<])*)<\/\1>/g;
 const ATOM_LINK = /<link\b[^>]*\bhref="([^"]+)"/;
 
 export function parseFeed(xml) {
   if (typeof xml !== 'string' || !xml) return [];
   const items = [];
-  for (const [, , body] of xml.matchAll(BLOCK)) {
+  for (const body of [...blocks(xml, 'item'), ...blocks(xml, 'entry')]) {
+    if (items.length >= MAX_ITEMS) break;
     const fields = {};
     for (const [, tag, text] of body.matchAll(LEAF)) {
       if (!(tag in fields)) fields[tag] = decodeText(text);
