@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">
+<channel><title>National Hurricane Center (Eastern Pacific)</title>
+<item>
+<title>Summary for Hurricane Polo (EP2/EP182026)</title>
+<link>https://www.nhc.noaa.gov/text/refresh/MIATCPEP2+shtml/</link>
+<pubDate>Tue, 29 Sep 2026 15:00:00 GMT</pubDate>
+<nhc:Cyclone>
+<nhc:center>19.1, -104.3</nhc:center>
+<nhc:type>HURRICANE</nhc:type>
+<nhc:name>Polo</nhc:name>
+<nhc:wind>120 mph</nhc:wind>
+<nhc:movement>NNE at 9 mph</nhc:movement>
+</nhc:Cyclone>
+</item>
+<item><title>Tropical Weather Outlook</title><link>https://www.nhc.noaa.gov/gtwo.php?basin=epac</link><pubDate>Tue, 29 Sep 2026 12:00:00 GMT</pubDate></item>
+</channel></rss>

@@ -1,0 +1,5 @@
+{"type":"FeatureCollection","features":[
+{"type":"Feature","id":"us7000big","properties":{"mag":7.1,"place":"45 km E of Hualien City, Taiwan","time":1759380000000,"url":"https://earthquake.usgs.gov/earthquakes/eventpage/us7000big","tsunami":1,"title":"M 7.1 - 45 km E of Hualien City, Taiwan"},"geometry":{"type":"Point","coordinates":[121.9,23.9,20]}},
+{"type":"Feature","id":"us7000mid","properties":{"mag":6.2,"place":"South Sandwich Islands region","time":1759300000000,"url":"https://earthquake.usgs.gov/earthquakes/eventpage/us7000mid","tsunami":0,"title":"M 6.2 - South Sandwich Islands region"},"geometry":{"type":"Point","coordinates":[-26.5,-58.1,35]}},
+{"type":"Feature","id":"us7000small","properties":{"mag":4.8,"place":"Fiji region","time":1759200000000,"url":"https://earthquake.usgs.gov/earthquakes/eventpage/us7000small","tsunami":0,"title":"M 4.8 - Fiji region"},"geometry":{"type":"Point","coordinates":[178,-18,500]}}
+]}

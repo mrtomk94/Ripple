@@ -1,0 +1,18 @@
+# Render Blueprint: one always-on web service with a small persistent disk.
+services:
+  - type: web
+    name: ripple
+    runtime: node
+    plan: starter          # paid, always-on (free instances sleep when idle)
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: ripple-data
+      mountPath: /var/data
+      sizeGB: 1

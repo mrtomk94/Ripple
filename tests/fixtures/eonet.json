@@ -1,0 +1,5 @@
+{"title":"EONET Events","events":[
+{"id":"EONET_1","title":"Etna Volcano, Italy","categories":[{"id":"volcanoes","title":"Volcanoes"}],"sources":[{"id":"SIVolcano","url":"https://volcano.si.edu/volcano.cfm?vn=211060"}],"geometry":[{"date":"2026-10-02T00:00:00Z","type":"Point","coordinates":[14.99,37.75]}]},
+{"id":"EONET_2","title":"Small Brush Fire, Nevada","categories":[{"id":"wildfires","title":"Wildfires"}],"sources":[{"id":"InciWeb","url":"https://inciweb.example/1"}],"geometry":[{"date":"2026-10-03T00:00:00Z","type":"Point","coordinates":[-117,39]}]},
+{"id":"EONET_3","title":"Severe Storm Kong-rey","categories":[{"id":"severeStorms","title":"Severe Storms"}],"sources":[{"id":"JTWC","url":"https://jtwc.example/kongrey"}],"geometry":[{"date":"2026-10-01T00:00:00Z","type":"Point","coordinates":[130,15]},{"date":"2026-10-03T00:00:00Z","type":"Point","coordinates":[125,20]}]}
+]}

@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:gdacs="http://www.gdacs.org" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#">
+<channel><title>GDACS</title>
+<item>
+<title>Red flood alert in Bangladesh</title>
+<link>https://www.gdacs.org/report.aspx?eventtype=FL&amp;eventid=1001</link>
+<pubDate>Fri, 02 Oct 2026 08:00:00 GMT</pubDate>
+<gdacs:alertlevel>Red</gdacs:alertlevel><gdacs:eventtype>FL</gdacs:eventtype><gdacs:country>Bangladesh</gdacs:country>
+<geo:Point><geo:lat>23.7</geo:lat><geo:long>90.4</geo:long></geo:Point>
+</item>
+<item>
+<title>Orange drought alert in Brazil</title>
+<link>https://www.gdacs.org/report.aspx?eventtype=DR&amp;eventid=1002</link>
+<pubDate>Thu, 01 Oct 2026 08:00:00 GMT</pubDate>
+<gdacs:alertlevel>Orange</gdacs:alertlevel><gdacs:eventtype>DR</gdacs:eventtype><gdacs:country>Brazil</gdacs:country>
+<geo:Point><geo:lat>-15.8</geo:lat><geo:long>-47.9</geo:long></geo:Point>
+</item>
+<item>
+<title>Green earthquake alert in Chile</title>
+<link>https://www.gdacs.org/report.aspx?eventtype=EQ&amp;eventid=1003</link>
+<pubDate>Thu, 01 Oct 2026 06:00:00 GMT</pubDate>
+<gdacs:alertlevel>Green</gdacs:alertlevel><gdacs:eventtype>EQ</gdacs:eventtype><gdacs:country>Chile</gdacs:country>
+<geo:Point><geo:lat>-30</geo:lat><geo:long>-71</geo:long></geo:Point>
+</item>
+</channel></rss>

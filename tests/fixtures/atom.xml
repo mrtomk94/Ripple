@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"><title>Example</title>
+<entry><title>Atom entry about inflation</title><link rel="alternate" href="https://example.org/a1"/><updated>2026-10-04T10:00:00Z</updated></entry>
+</feed>

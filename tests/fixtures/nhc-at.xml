@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">
+<channel><title>National Hurricane Center (Atlantic)</title>
+<item>
+<title>Summary for Tropical Storm Ivan (AT4/AL092026)</title>
+<link>https://www.nhc.noaa.gov/text/refresh/MIATCPAT4+shtml/</link>
+<pubDate>Sat, 03 Oct 2026 21:00:00 GMT</pubDate>
+<nhc:Cyclone><nhc:center>26.0, -90.5</nhc:center><nhc:type>TROPICAL STORM</nhc:type><nhc:name>Ivan</nhc:name><nhc:wind>60 mph</nhc:wind></nhc:Cyclone>
+</item>
+</channel></rss>

@@ -110,7 +110,7 @@ footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
   <header>
     <h1>Ripple</h1>
     <p>World events, and the parts of the market they push on. Wars, storms, heat, oil, new technology, and central banks, all on one board.</p>
-    <p class="snap">Built from news through Sept 30, 2026. Paste any new headline below and it joins the board.</p>
+    <p class="snap" id="snap" role="status">Loading live events…</p>
   </header>
 
   <div class="grid">
@@ -122,7 +122,7 @@ footer{margin-top:28px;color:var(--muted);font-size:13px;max-width:70ch}
         <div class="legend" id="legend"></div>
       </section>
 
-      <section class="panel analyze" aria-labelledby="anh">
+      <section class="panel analyze" id="analyzer" aria-labelledby="anh" hidden>
         <h2 id="anh">Add a headline</h2>
         <p class="sub">Paste any news. Claude tags it, places it on the map, and traces which sectors it could push up or down, including the knock-on effects.</p>
         <label class="sr" for="hl">Headline</label>
@@ -163,7 +163,7 @@ const CATS={
 };
 const SECTORS=["Energy","Defense","Shipping & freight","Insurance","Utilities & power","Consumer staples","Consumer discretionary","Semiconductors","Cloud & software","Travel & airlines","Agriculture","Banks & rate-sensitive"];
 
-const EVENTS=[
+const SNAPSHOT=[
  {id:"e1",cat:"energy",sev:5,date:"2026-09-11",region:"Global / US Gulf Coast",lat:29.7,lng:-95.3,
   title:"Crude spikes toward $100, energy leads 2026",
   what:"Oil jumped close to double digits in one week in early September, lifting Treasury yields too. Energy is the best-performing sector of 2026 so far, up more than 40% year to date, while consumer discretionary is down on the year.",
@@ -272,8 +272,27 @@ let added=[];
 try{added=JSON.parse(localStorage.getItem("ripple-added")||"[]")||[]}catch(e){added=[]}
 function save(){try{localStorage.setItem("ripple-added",JSON.stringify(added))}catch(e){}}
 
-let filter="all", selected=null, firstDraw=true;
-const all=()=>[...added,...EVENTS];
+let filter="all", selected=null, firstDraw=true, live=null;
+const all=()=>[...added,...(live||SNAPSHOT)];
+const when=d=>{const t=Date.parse(d);return Number.isNaN(t)?String(d):new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})};
+const safeUrl=u=>/^https?:\/\//.test(u||"")?u:"";
+
+async function loadLive(){
+  try{
+    const r=await fetch("/api/events",{cache:"no-store"});
+    if(!r.ok) throw new Error(r.status);
+    const data=await r.json();
+    if(!Array.isArray(data.events)) throw new Error("bad data");
+    live=data.events;
+    $("#snap").textContent=live.length
+      ? `Live: ${live.length} events from trusted sources, updated ${when(new Date(data.generatedAt).toISOString())}. Refreshes every 5 minutes.`
+      : "Live, but no events collected yet. The first sources report within a few minutes.";
+  }catch(e){
+    live=null;
+    $("#snap").textContent="Live feed unreachable, showing the Sept 30, 2026 snapshot. Retrying every 5 minutes.";
+  }
+  render();
+}
 const visible=()=>all().filter(e=>filter==="all"||e.cat===filter);
 
 function drawMap(){
@@ -281,8 +300,8 @@ function drawMap(){
   for(let x=0;x<=360;x+=30) h+=`<line class="grat" x1="${x}" y1="0" x2="${x}" y2="180"/>`;
   for(let y=0;y<=180;y+=30) h+=`<line class="grat" x1="0" y1="${y}" x2="360" y2="${y}"/>`;
   LAND.forEach(p=>{h+=`<polygon class="land" points="${p.map(([a,b])=>px(a,b).join(",")).join(" ")}"/>`});
-  visible().slice().sort((a,b)=>a.sev-b.sev).forEach((e,i)=>{
-    const [x,y]=px(e.lng,e.lat), r=1.6+e.sev*.75, c=`var(${CATS[e.cat].v})`;
+  visible().filter(e=>typeof e.lat==="number"&&typeof e.lng==="number").sort((a,b)=>a.sev-b.sev).forEach((e,i)=>{
+    const [x,y]=px(e.lng,e.lat), r=1.6+e.sev*.75, c=`var(${(CATS[e.cat]||CATS.markets).v})`;
     const delay=firstDraw?(i*0.09).toFixed(2):"0";
     if(firstDraw) h+=`<circle class="ring" cx="${x}" cy="${y}" r="${r}" stroke="${c}" style="transform-origin:${x}px ${y}px;animation-delay:${delay}s"/>`;
     if(selected===e.id) h+=`<circle class="sel" cx="${x}" cy="${y}" r="${r+2.2}"/>`;
@@ -320,10 +339,10 @@ function drawChips(){
 function dirTag(d){return d>0?'<span class="tag u">Up pressure</span>':d<0?'<span class="tag d">Down pressure</span>':'<span class="tag m">Mixed</span>'}
 
 function drawFeed(){
-  const list=visible().slice().sort((a,b)=>(b.mine?1:0)-(a.mine?1:0)||b.sev-a.sev);
+  const list=visible().slice().sort((a,b)=>(b.mine?1:0)-(a.mine?1:0)||b.sev-a.sev||(Date.parse(b.date)||0)-(Date.parse(a.date)||0));
   if(!list.length){$("#feed").innerHTML='<div class="empty">Nothing in this category yet. Paste a headline above to add one.</div>';return}
   $("#feed").innerHTML=list.map(e=>{
-    const on=selected===e.id, c=`var(${CATS[e.cat].v})`;
+    const on=selected===e.id, c=`var(${(CATS[e.cat]||CATS.markets).v})`;
     const bars=[1,2,3,4,5].map(n=>`<i class="${n<=e.sev?"f":""}"></i>`).join("");
     let body="";
     if(on){
@@ -332,7 +351,7 @@ function drawFeed(){
         <h3>Chain reaction</h3><ol>${(e.chain||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ol>
         <h3>Sectors touched</h3><div class="sects">${(e.sectors||[]).map(x=>`<div class="sect">${dirTag(x.d)}<span><b>${esc(x.s)}</b>: ${esc(x.why)}</span></div>`).join("")}</div>
         <h3>Tickers to watch</h3><div>${(e.watch||[]).map(t=>`<span class="tick">${esc(t)}</span>`).join("")}</div>
-        <div class="src">${esc(e.src)}</div>
+        <div class="src">${esc(e.src)}${safeUrl(e.link)?` · <a href="${esc(e.link)}" target="_blank" rel="noopener noreferrer">Read the source</a>`:""}</div>
         ${e.mine?`<div class="row"><button class="ghost" data-del="${e.id}">Remove from board</button></div>`:""}
       </div>`;
     }
@@ -340,7 +359,7 @@ function drawFeed(){
       <button class="evh" data-id="${e.id}" aria-expanded="${on}">
         <strong>${esc(e.title)}${e.mine?'<span class="mine">Yours</span>':""}</strong>
         <span class="sev" aria-label="Size ${e.sev} of 5">${bars}</span>
-        <span class="meta">${esc(CATS[e.cat].label)}, ${esc(e.region)}, ${esc(e.date)}</span>
+        <span class="meta">${esc([(CATS[e.cat]||CATS.markets).label,e.region,when(e.date)].filter(Boolean).join(", "))}</span>
       </button>${body}</article>`;
   }).join("");
   $("#feed").querySelectorAll(".evh").forEach(b=>b.onclick=()=>select(b.dataset.id,false));
@@ -353,16 +372,17 @@ function select(id,scroll){
 }
 
 function render(){drawChips();drawMap();drawPressure();drawFeed()}
-drawLegend(); render();
+drawLegend(); render(); loadLive();
+setInterval(loadLive,5*60e3);
+document.addEventListener("visibilitychange",()=>{if(!document.hidden) loadLive()});
 
 /* ---------- Analyzer ---------- */
 let sample=null;
 const go=$("#go"), st=$("#st");
-go.disabled=true; st.textContent="Connecting to Claude…";
+go.disabled=true;
 (async()=>{
   try{ sample = window.claude && window.claude.use ? await window.claude.use("sample") : null }catch(e){ sample=null }
-  if(sample){go.disabled=false; st.textContent=""}
-  else{st.textContent="Headline analysis isn't available in this view. Open the page on claude.ai to use it."}
+  if(sample){$("#analyzer").hidden=false; go.disabled=false; st.textContent=""}
 })();
 
 function clean(r,headline){
