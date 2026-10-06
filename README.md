@@ -29,7 +29,18 @@ npm test
 npm run coverage     # fails if line coverage < 80%
 ```
 
-## Deploy to Render
+## Free hosting: GitHub Actions + GitHub Pages (recommended, $0)
+
+No server. Every 15 minutes a GitHub Action runs `src/collect.js`, which pulls every source once, merges with the last run's events, and publishes the page plus `events.json` to GitHub Pages.
+
+1. Make the repo **public** (free Pages and unlimited Actions minutes need a public repo).
+2. Repo **Settings > Pages > Source: GitHub Actions**.
+3. Push to `main`, or go to **Actions > Collect feeds > Run workflow**.
+4. Your site: `https://<user>.github.io/<repo>/`. Each run's log shows which sources are failing.
+
+Note: GitHub pauses scheduled workflows in public repos after 60 days with no commits. It emails you first; click **Enable workflow** or push any small change.
+
+## Paid hosting: Render (optional, always-on server)
 
 1. Create a new GitHub repo and push this project to it.
 2. In Render: **New > Blueprint**, pick the repo. Render reads `render.yaml` and creates an always-on web service with a 1 GB disk for saved events.

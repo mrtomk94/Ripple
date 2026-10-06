@@ -121,16 +121,28 @@ const all=()=>[...added,...(live||SNAPSHOT)];
 const when=d=>{const t=Date.parse(d);return Number.isNaN(t)?String(d):new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})};
 const safeUrl=u=>/^https?:\/\//.test(u||"")?u:"";
 
+// Free hosting (GitHub Pages) serves a static events.json next to the page;
+// the Render server answers /api/events. Try the static file first.
+async function fetchEvents(){
+  for(const url of ["events.json","/api/events"]){
+    try{
+      const r=await fetch(url,{cache:"no-store"});
+      if(!r.ok) continue;
+      const data=await r.json();
+      if(Array.isArray(data.events)) return data;
+    }catch(e){}
+  }
+  throw new Error("unreachable");
+}
 async function loadLive(){
   try{
-    const r=await fetch("/api/events",{cache:"no-store"});
-    if(!r.ok) throw new Error(r.status);
-    const data=await r.json();
-    if(!Array.isArray(data.events)) throw new Error("bad data");
+    const data=await fetchEvents();
     live=data.events;
+    const age=Date.now()-Number(data.generatedAt);
+    const stale=age>2*3600e3?" That's over 2 hours ago, so collection may be paused.":"";
     $("#snap").textContent=live.length
-      ? `Live: ${live.length} events from trusted sources, updated ${when(new Date(data.generatedAt).toISOString())}. Refreshes every 5 minutes.`
-      : "Live, but no events collected yet. The first sources report within a few minutes.";
+      ? `Live: ${live.length} events from trusted sources, collected ${when(new Date(Number(data.generatedAt)).toISOString())}.${stale}`
+      : "Live, but no events collected yet. The first collection runs within 15 minutes.";
   }catch(e){
     live=null;
     $("#snap").textContent="Live feed unreachable, showing the Sept 30, 2026 snapshot. Retrying every 5 minutes.";

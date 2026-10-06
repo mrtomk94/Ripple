@@ -11,7 +11,7 @@ import { fetchText } from '../src/fetch.js';
 let server, base;
 before(async () => {
   const pub = mkdtempSync(join(tmpdir(), 'pub-'));
-  writeFileSync(join(pub, 'index.html'), '<script src="/app.js"></script>');
+  writeFileSync(join(pub, 'index.html'), '<script src="app.js"></script>');
   writeFileSync(join(pub, 'app.js'), 'console.log(1)');
   const status = () => ({ usgs: { runs: 3, lastOk: 10, lastError: 'HTTP 403 from https://internal', lastErrorAt: 20, added: 1 } });
   server = createServer(createHandler({ store: { list: () => [] }, status, publicDir: pub, limiter: createRateLimiter({ limit: 3, windowMs: 60e3 }) }));
@@ -35,7 +35,7 @@ test('real page has no inline script', async () => {
   const { readFileSync } = await import('node:fs');
   const html = readFileSync(new URL('../public/index.html', import.meta.url), 'utf8');
   assert.ok(!/<script>(?!\s*<\/script>)/.test(html), 'inline <script> found');
-  assert.match(html, /<script src="\/app.js" defer><\/script>/);
+  assert.match(html, /<script src="app.js" defer><\/script>/);
 });
 
 // Fix 2
@@ -95,4 +95,10 @@ test('client IP comes from the first forwarded address, else the socket', () => 
 test('items with attributes are still read', () => {
   const items = parseFeed('<rdf><item rdf:about="https://a"><title>A</title></item><item\n><title>B</title></item><itemx><title>no</title></itemx></rdf>');
   assert.deepEqual(items.map((i) => i.title), ['A', 'B']);
+});
+
+test('page works from a sub-folder (GitHub Pages) and tries the static file first', async () => {
+  const { readFileSync } = await import('node:fs');
+  const js = readFileSync(new URL('../public/app.js', import.meta.url), 'utf8');
+  assert.ok(js.indexOf('"events.json"') > -1 && js.indexOf('"events.json"') < js.indexOf('"/api/events"'));
 });

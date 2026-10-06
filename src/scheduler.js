@@ -1,3 +1,8 @@
+// Public view of source status: working or failing, never error text.
+export const publicHealth = (status) => Object.fromEntries(Object.entries(status).map(([name, s]) => [
+  name, { runs: s.runs, lastOk: s.lastOk, failing: Boolean(s.lastErrorAt && (!s.lastOk || s.lastErrorAt >= s.lastOk)) },
+]));
+
 const blankStatus = () => ({ runs: 0, lastOk: null, lastError: null, lastErrorAt: null, added: 0 });
 
 export function createScheduler({

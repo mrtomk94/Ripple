@@ -4,7 +4,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { CATEGORIES } from './event.js';
 import { createStore } from './store.js';
-import { createScheduler } from './scheduler.js';
+import { createScheduler, publicHealth } from './scheduler.js';
 import { fetchText } from './fetch.js';
 import sources from './sources/index.js';
 
@@ -44,9 +44,7 @@ export function clientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
-const publicHealth = (status) => Object.fromEntries(Object.entries(status).map(([name, s]) => [
-  name, { runs: s.runs, lastOk: s.lastOk, failing: Boolean(s.lastErrorAt && (!s.lastOk || s.lastErrorAt >= s.lastOk)) },
-]));
+
 
 const json = (res, status, obj, extra = {}) => send(res, status, JSON.stringify(obj), 'application/json; charset=utf-8', { 'cache-control': 'no-store', ...extra });
 
