@@ -83,7 +83,7 @@ test('news events record their outlet', () => {
   assert.equal(e.outlet, 'BBC');
 });
 test('source registry lists every source with https feeds', () => {
-  assert.equal(sources.length, 6);
+  assert.equal(sources.length, 7);
   for (const s of sources) {
     assert.ok(s.name && s.intervalMin > 0 && typeof s.parse === 'function');
     assert.ok(s.feeds.length > 0 && s.feeds.every((f) => f.url.startsWith('https://')));

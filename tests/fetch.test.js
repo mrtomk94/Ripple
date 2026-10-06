@@ -17,3 +17,10 @@ test('throws on HTTP errors', async () => {
 test('throws on oversized responses', async () => {
   await assert.rejects(fetchText('https://x', { fetchFn: fake(200, 'x'.repeat(11)), maxBytes: 10 }), /too large/);
 });
+
+test('extra headers are merged in and can replace the user agent', async () => {
+  let seen;
+  await fetchText('https://x', { headers: { 'user-agent': 'Ripple me@x.com' }, fetchFn: async (u, o) => { seen = o; return { ok: true, status: 200, text: async () => '' }; } });
+  assert.equal(seen.headers['user-agent'], 'Ripple me@x.com');
+  assert.ok(seen.headers.accept);
+});

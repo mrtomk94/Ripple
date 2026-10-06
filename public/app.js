@@ -116,7 +116,7 @@ let added=[];
 try{added=JSON.parse(localStorage.getItem("ripple-added")||"[]")||[]}catch(e){added=[]}
 function save(){try{localStorage.setItem("ripple-added",JSON.stringify(added))}catch(e){}}
 
-let filter="all", selected=null, firstDraw=true, live=null, card=null, preds=[], quotes={}, watch=null;
+let filter="all", selected=null, firstDraw=true, live=null, card=null, preds=[], quotes={}, watch=null, optionsData=null;
 const all=()=>[...added,...(live||SNAPSHOT)];
 const when=d=>{const t=Date.parse(d);return Number.isNaN(t)?String(d):new Date(t).toLocaleString([], {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})};
 const safeUrl=u=>/^https?:\/\//.test(u||"")?u:"";
@@ -141,6 +141,7 @@ async function loadLive(){
     card=data.scorecard||null;
     quotes=(data.market&&data.market.quotes)||{};
     watch=data.watch||null;
+    optionsData=data.options||null;
     preds=Array.isArray(data.predictions)?data.predictions:[];
     const age=Date.now()-Number(data.generatedAt);
     const stale=age>2*3600e3?" That's over 2 hours ago, so collection may be paused.":"";
@@ -148,7 +149,7 @@ async function loadLive(){
       ? `Live: ${live.length} events from trusted sources, collected ${when(new Date(Number(data.generatedAt)).toISOString())}.${stale}`
       : "Live, but no events collected yet. The first collection runs within 15 minutes.";
   }catch(e){
-    live=null; card=null; preds=[]; quotes={}; watch=null;
+    live=null; card=null; preds=[]; quotes={}; watch=null; optionsData=null;
     $("#snap").textContent="Live feed unreachable, showing the Sept 30, 2026 snapshot. Retrying every 5 minutes.";
   }
   render();
@@ -334,7 +335,49 @@ function drawDash(){
   el.innerHTML=h;
 }
 
-function render(){drawChips();drawMap();drawPressure();drawFeed();drawQueue();drawWatch();drawDash()}
+const VOICES=[
+  {id:"musk",name:"Elon Musk",role:"CEO of Tesla and SpaceX",tickers:["TSLA","SPCX"]},
+  {id:"trump",name:"Donald Trump",role:"US President",tickers:["SPY","DJT"]},
+  {id:"zuckerberg",name:"Mark Zuckerberg",role:"CEO of Meta",tickers:["META"]}
+];
+function sourceKind(e){
+  const s=e.src||"";
+  if(/unofficial/i.test(s)) return '<span class="kind unoff">Unofficial archive</span>';
+  if(/Federal Register|SEC EDGAR|Meta Newsroom|American Presidency Project/.test(s)) return '<span class="kind off">Official</span>';
+  return "";
+}
+function drawVoices(){
+  const el=$("#voices");
+  const evs=all().filter(e=>Array.isArray(e.people)&&e.people.length);
+  el.innerHTML=VOICES.map(v=>{
+    const mine=evs.filter(e=>e.people.includes(v.id)).sort((a,b)=>(Date.parse(b.date)||0)-(Date.parse(a.date)||0)).slice(0,4);
+    const tix=v.tickers.map(t=>quotes[t]?`<span><b>${esc(t)}</b> ${money(quotes[t].price)} ${chg(quotes[t].changePct)}</span>`:`<span><b>${esc(t)}</b></span>`).join("");
+    const items=mine.length?mine.map(e=>{
+      const who=outlets(e).length?outlets(e).map(x=>x.outlet||x.src).join(" · "):(e.src||"");
+      return `<button class="vitem" data-v="${esc(e.id)}"><div class="qt">${esc(e.title)}</div><div class="qm">${esc(ago(e.date))} · ${esc(who)}${sourceKind(e)}${confBadge(e)}</div></button>`;
+    }).join(""):'<p class="note" style="margin:4px 0 0">Nothing new yet.</p>';
+    return `<div class="vgroup"><div class="vhead"><b>${esc(v.name)}</b><small>${esc(v.role)}</small></div><div class="vtix">${tix}</div>${items}</div>`;
+  }).join("")+'<p class="note">Direct posts on X are not included (no free official feed). Trump\'s Truth Social posts come from two public archives: UC Santa Barbara (trusted, about a day behind) and trumpstruth.org (faster, unofficial).</p>';
+  el.querySelectorAll("[data-v]").forEach(b=>b.onclick=()=>{filter="all";select(b.dataset.v,true)});
+}
+const shortMoney=x=>x>=1e9?`$${(x/1e9).toFixed(1)}B`:x>=1e6?`$${(x/1e6).toFixed(1)}M`:`$${Math.round(x/1e3)}K`;
+const expShort=d=>{const t=Date.parse(d+"T12:00:00Z");return Number.isNaN(t)?d:new Date(t).toLocaleDateString([], {month:"short",day:"numeric",timeZone:"UTC"})};
+function drawOptions(){
+  const el=$("#options");
+  if(!optionsData){el.innerHTML='<p class="note">The sweep appears when live data loads.</p>';return}
+  const f=optionsData.flagged||[];
+  const head=`<p class="note" style="margin-top:0">Scanned ${Number(optionsData.scanned)||0} stocks, ${esc(when(new Date(optionsData.at).toISOString()))}. Cboe data, about 15 minutes delayed. Checks hourly while the market is open.</p>`;
+  const rows=f.length?f.slice(0,12).map(o=>{
+    const d=o.type==="call"?1:-1, num=x=>Number(x)||0;
+    const strike=num(o.strike), dte=Math.round(num(o.dte)), vol=Math.round(num(o.volume)), mny=Number(o.moneyness);
+    const ratio=num(o.oi)?`${num(o.ratio)}× open contracts`:"all new";
+    const money2=Number.isFinite(mny)&&o.moneyness!==null?` · strike ${mny>0?"+":""}${(mny*100).toFixed(0)}% from price`:"";
+    return `<div class="orow"><span class="od">${tickChip(o.ticker,d)} <b>${d>0?"Call":"Put"} $${strike}</b> · ${esc(expShort(o.expiry))} (${dte} days)<small>${vol.toLocaleString()} contracts, ${ratio}${money2}</small></span><span class="prem">${shortMoney(num(o.premium))}</span></div>`;
+  }).join(""):'<p class="note">No trades met the rules in the last sweep.</p>';
+  el.innerHTML=head+rows+'<p class="note">Calls lean up, puts lean down, but this shows a big trade happened, not who bought or sold it. Large puts are often hedges. These are not counted in the accuracy dashboard.</p>';
+}
+
+function render(){drawChips();drawMap();drawPressure();drawFeed();drawQueue();drawWatch();drawOptions();drawVoices();drawDash()}
 drawLegend(); render(); loadLive();
 setInterval(loadLive,5*60e3);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden) loadLive()});

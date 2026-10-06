@@ -51,3 +51,11 @@ test('start runs every source now and schedules each at its interval', async () 
   assert.deepEqual(timers.sort((a, b) => a - b), [15 * 60e3, 60 * 60e3]);
   s.stop();
 });
+
+test('passes per-feed fetch options (like headers) through', async () => {
+  const src = { name: 'h', intervalMin: 1, feeds: [{ url: 'https://h', fetch: { headers: { 'user-agent': 'X me@x' } } }], parse: () => [] };
+  let got;
+  const s = createScheduler({ sources: [src], store: fakeStore(), log: noop, fetchText: async (u, o) => { got = o; return ''; }, now: () => 1 });
+  await s.runSource(src);
+  assert.equal(got.headers['user-agent'], 'X me@x');
+});

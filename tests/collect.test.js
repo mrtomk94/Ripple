@@ -65,7 +65,7 @@ test('tracks predictions across runs and scores them a trading day later', async
 });
 test('weekend runs reuse Friday prices instead of refetching', async () => {
   const sat = Date.parse('2026-10-10T15:00:00Z');
-  const previous = { market: { fetchedAt: sat - 20 * 3600e3, quotes: { SPY: { price: 1, date: '2026-10-09' } } } };
+  const previous = { market: { fetchedAt: sat - 20 * 3600e3, quotes: { SPY: { price: 1, date: '2026-10-09' } } }, options: { at: sat - 20 * 3600e3, flagged: [] } };
   const urls = [];
   const out = await collect({ sources: [], fetchText: async (u) => { urls.push(u); return ''; }, log: quiet, now: () => sat, previous });
   assert.equal(urls.length, 0);
@@ -88,4 +88,19 @@ test('market data: watchlist and movers included, refetch skipped within 30 minu
   calls = 0;
   await collect({ sources: [], fetchText, log: quiet, now: () => NOW + 40 * 60e3, previous: first });
   assert.ok(calls >= 30);
+});
+
+test('options sweep runs on schedule and is reused in between', async () => {
+  const { readFileSync } = await import('node:fs');
+  const chain = readFileSync(new URL('./fixtures/cboe-tsla.json', import.meta.url), 'utf8');
+  const open = Date.parse('2026-10-06T17:45:00Z'); // 1:45 PM New York
+  let cboe = 0;
+  const fetchText = async (u) => { if (u.includes('cboe')) { cboe++; return chain; } return ''; };
+  const first = await collect({ sources: [], fetchText, log: quiet, now: () => open });
+  assert.ok(cboe > 10);
+  assert.ok(first.options.flagged.length > 0);
+  cboe = 0;
+  const again = await collect({ sources: [], fetchText, log: quiet, now: () => open + 20 * 60e3, previous: first });
+  assert.equal(cboe, 0);
+  assert.deepEqual(again.options, first.options);
 });

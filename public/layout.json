@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "order": [
+    "map",
+    "pressure",
+    "latest",
+    "voices",
+    "watch",
+    "options",
+    "dash",
+    "board"
+  ],
+  "width": {
+    "map": "half",
+    "pressure": "half",
+    "latest": "half",
+    "voices": "half",
+    "watch": "half",
+    "options": "half",
+    "dash": "full",
+    "board": "full"
+  },
+  "hidden": []
+}

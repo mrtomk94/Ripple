@@ -1,6 +1,7 @@
 import { parseFeed } from '../xml.js';
 import { makeEvent } from '../event.js';
-import { classifyHeadline } from '../classify/rules.js';
+import { classifyHeadline, findPlace } from '../classify/rules.js';
+import { peopleIn, PEOPLE_CHAIN } from '../people.js';
 
 // Stores only the headline, link and date from each outlet, plus our own tags.
 export default {
@@ -24,13 +25,15 @@ export default {
     const label = feed.label || 'News';
     return parseFeed(text)
       .map((it) => {
-        const c = classifyHeadline(it.title);
+        const people = peopleIn(it.title);
+        const c = classifyHeadline(it.title)
+          || (people.length ? { cat: 'markets', sev: 2, sectors: [], chain: PEOPLE_CHAIN, place: findPlace(it.title) } : null);
         if (!c) return null;
         return makeEvent({
           source: 'news', key: it.link, title: it.title, link: it.link, date: it.pubDate, cat: c.cat, sev: c.sev,
           lat: c.place?.lat, lng: c.place?.lng, region: c.place?.region,
           what: `Headline from ${label}, tagged automatically by keyword rules. Open the source for the full story.`,
-          chain: c.chain, sectors: c.sectors, src: label, outlet: feed.outlet,
+          chain: c.chain, sectors: c.sectors, src: label, outlet: feed.outlet, people,
         });
       })
       .filter(Boolean);

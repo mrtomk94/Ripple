@@ -12,6 +12,7 @@ import { getMarket, isWeekendNY } from './market.js';
 import { UNIVERSE, buildWatch } from './watchlist.js';
 import { SECTOR_ETF } from './event.js';
 import { BENCHMARK } from './predictions.js';
+import { sweepOptions, shouldSweep, OPTION_UNIVERSE } from './options.js';
 
 const MARKET_REFRESH_MS = 30 * 60e3;
 
@@ -29,6 +30,7 @@ export async function collect({ sources, fetchText, previous = {}, log = console
   return {
     generatedAt: now(), sources: publicHealth(scheduler.status()), events,
     market, watch: buildWatch(quotes, events),
+    options: shouldSweep(previous.options, now()) ? await sweepOptions(OPTION_UNIVERSE, fetchText, now) : previous.options,
     predictions, scorecard: scorecard(predictions),
   };
 }
@@ -61,5 +63,6 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const out = await collectToFile(process.argv[2] || 'public/events.json', { sources, fetchText });
   const failing = Object.entries(out.sources).filter(([, s]) => s.failing).map(([n]) => n);
   console.info(`Collected ${out.events.length} events.${failing.length ? ` Failing: ${failing.join(', ')}` : ' All sources OK.'}`);
+  if (out.options) console.info(`Options: ${out.options.flagged.length} unusual trades from ${out.options.scanned} chains (${out.options.failed} failed).`);
   console.info(`Prices: ${out.market.reused ? 'reused from last run' : `${out.market.got}/${out.market.asked} quotes`}. Predictions: ${out.scorecard.pending} pending, ${out.scorecard.scored} scored${out.scorecard.hitRate === null ? '' : `, ${Math.round(out.scorecard.hitRate * 100)}% hit rate`}.`);
 }

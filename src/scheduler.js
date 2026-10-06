@@ -22,7 +22,7 @@ export function createScheduler({
     try {
       for (const feed of src.feeds) {
         try {
-          added += store.upsert(src.parse(await fetchText(feed.url), feed));
+          added += store.upsert(src.parse(await fetchText(feed.url, feed.fetch), feed));
           ok = true;
         } catch (err) {
           st.lastError = err.message;

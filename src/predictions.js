@@ -19,6 +19,7 @@ export function addPredictions(preds, events, now = Date.now) {
   const have = new Set(preds.map((p) => p.id));
   const out = [...preds];
   for (const e of events) {
+    if (e.unofficial) continue; // unofficial sources are shown, never scored
     if (now() - Date.parse(e.date) > NEW_EVENT_HOURS * H) continue;
     for (const s of e.sectors || []) {
       const ticker = SECTOR_ETF[s.s];
